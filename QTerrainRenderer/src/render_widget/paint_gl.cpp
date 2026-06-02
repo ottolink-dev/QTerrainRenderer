@@ -46,9 +46,10 @@ void RenderWidget::paintGL()
     break;
   }
 
-#ifdef __linux__
-  this->doneCurrent();
-#endif
+  // NOTE: do NOT call doneCurrent() here. paintGL() is a Qt override; Qt keeps
+  // the GL context current after it returns to run invalidateFboAfterPainting()
+  // (glInvalidateFramebuffer). Releasing the context here leaves
+  // QOpenGLContext::currentContext()==nullptr and crashes inside Qt 6.11.
 }
 
 } // namespace qtr
