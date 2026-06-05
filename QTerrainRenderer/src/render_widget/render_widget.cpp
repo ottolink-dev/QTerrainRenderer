@@ -166,12 +166,13 @@ void RenderWidget::initializeGL()
 
   // --- Meshes
 
+  // keep the plane square, use hmap_wx for both directions
   generate_plane(this->plane,
                  0.f,
                  -1e-3f,
                  0.f,
-                 2000.f * this->hmap_w,
-                 2000.f * this->hmap_w);
+                 2000.f * this->hmap_wx,
+                 2000.f * this->hmap_wx);
 
   // --- Textures
 
@@ -366,6 +367,12 @@ void RenderWidget::resizeGL(int w, int h)
   this->doneCurrent();
 }
 
+void RenderWidget::set_aspect_ratio(float new_aspect_ratio)
+{
+  // wx is leading
+  this->hmap_wy = this->hmap_wx / new_aspect_ratio;
+}
+
 void RenderWidget::set_bypass_texture_albedo(bool new_state)
 {
   this->bypass_texture_albedo = new_state;
@@ -444,6 +451,9 @@ void RenderWidget::set_heightmap_geometry(const std::vector<float> &data,
 
   this->makeCurrent();
 
+  const float aspect_ratio = static_cast<float>(width) / static_cast<float>(height);
+  this->set_aspect_ratio(aspect_ratio);
+
   generate_heightmap(this->hmap,
                      data,
                      width,
@@ -451,21 +461,22 @@ void RenderWidget::set_heightmap_geometry(const std::vector<float> &data,
                      0.f,
                      this->hmap_h0,
                      0.f,
-                     this->hmap_w,
+                     this->hmap_wx,
                      this->hmap_h,
-                     this->hmap_w,
+                     this->hmap_wy,
                      add_skirt,
                      /* add_level */ 0.f,
                      /* exclude_below */ -FLT_MAX,
                      &this->hmap_hmin);
 
-  // regenerate plane
+  // regenerate plane (keep the plane square, use hmap_wx for both
+  // directions)
   generate_plane(this->plane,
                  0.f,
                  this->hmap_hmin * this->hmap_h - 1e-3f,
                  0.f,
-                 2000.f * this->hmap_w,
-                 2000.f * this->hmap_w);
+                 2000.f * this->hmap_wx,
+                 2000.f * this->hmap_wx);
 
   qtr::Logger::log()->trace("RenderWidget::set_heightmap_geometry: w x h = {} x {}",
                             width,
@@ -498,9 +509,9 @@ void RenderWidget::set_leaves(const std::vector<float> &x,
 
   for (size_t k = 0; k < x.size(); ++k)
   {
-    float xs = 0.5f * this->hmap_w * (2.f * x[k] - 1.f);
+    float xs = 0.5f * this->hmap_wx * (2.f * x[k] - 1.f);
     float hs = this->hmap_h0 + this->hmap_h * h[k];
-    float ys = 0.5f * this->hmap_w * (2.f * y[k] - 1.f);
+    float ys = 0.5f * this->hmap_wy * (2.f * y[k] - 1.f);
     float rs = 2.f * radius[k];
     float rotation = (float)std::rand() / RAND_MAX * glm::two_pi<float>();
 
@@ -532,9 +543,9 @@ void RenderWidget::set_path(const std::vector<float> &x,
   for (size_t k = 0; k < x.size(); ++k)
   {
     // rescale to render size
-    float xs = 0.5f * this->hmap_w * (2.f * x[k] - 1.f);
+    float xs = 0.5f * this->hmap_wx * (2.f * x[k] - 1.f);
     float hs = this->hmap_h0 + this->hmap_h * h[k];
-    float ys = 0.5f * this->hmap_w * (2.f * y[k] - 1.f);
+    float ys = 0.5f * this->hmap_wy * (2.f * y[k] - 1.f);
 
     points.push_back(glm::vec3(xs, hs, ys));
   }
@@ -565,9 +576,9 @@ void RenderWidget::set_points(const std::vector<float> &x,
 
   for (size_t k = 0; k < x.size(); ++k)
   {
-    float xs = 0.5f * this->hmap_w * (2.f * x[k] - 1.f);
+    float xs = 0.5f * this->hmap_wx * (2.f * x[k] - 1.f);
     float hs = this->hmap_h0 + this->hmap_h * h[k];
-    float ys = 0.5f * this->hmap_w * (2.f * y[k] - 1.f);
+    float ys = 0.5f * this->hmap_wy * (2.f * y[k] - 1.f);
 
     instances.push_back({glm::vec3(xs, hs, ys), scale, rotation, color});
   }
@@ -652,9 +663,9 @@ void RenderWidget::set_rocks(const std::vector<float> &x,
 
   for (size_t k = 0; k < x.size(); ++k)
   {
-    float xs = 0.5f * this->hmap_w * (2.f * x[k] - 1.f);
+    float xs = 0.5f * this->hmap_wx * (2.f * x[k] - 1.f);
     float hs = this->hmap_h0 + this->hmap_h * h[k];
-    float ys = 0.5f * this->hmap_w * (2.f * y[k] - 1.f);
+    float ys = 0.5f * this->hmap_wy * (2.f * y[k] - 1.f);
     float rs = 2.f * radius[k];
     float rotation = (float)std::rand() / RAND_MAX * glm::two_pi<float>();
 
@@ -701,9 +712,9 @@ void RenderWidget::set_trees(const std::vector<float> &x,
 
   for (size_t k = 0; k < x.size(); ++k)
   {
-    float xs = 0.5f * this->hmap_w * (2.f * x[k] - 1.f);
+    float xs = 0.5f * this->hmap_wx * (2.f * x[k] - 1.f);
     float hs = this->hmap_h0 + this->hmap_h * h[k];
-    float ys = 0.5f * this->hmap_w * (2.f * y[k] - 1.f);
+    float ys = 0.5f * this->hmap_wy * (2.f * y[k] - 1.f);
     float rs = 2.f * radius[k];
     float rotation = (float)std::rand() / RAND_MAX * glm::two_pi<float>();
 
@@ -732,6 +743,9 @@ void RenderWidget::set_water_geometry(const std::vector<float> &data,
   bool  add_skirt = false;
   float add_level = 0.f;
 
+  const float aspect_ratio = static_cast<float>(width) / static_cast<float>(height);
+  this->set_aspect_ratio(aspect_ratio);
+
   generate_heightmap(this->water_mesh,
                      data,
                      width,
@@ -739,9 +753,9 @@ void RenderWidget::set_water_geometry(const std::vector<float> &data,
                      0.f,
                      this->hmap_h0,
                      0.f,
-                     this->hmap_w,
+                     this->hmap_wx,
                      this->hmap_h,
-                     this->hmap_w,
+                     this->hmap_wy,
                      add_skirt,
                      add_level,
                      exclude_below);

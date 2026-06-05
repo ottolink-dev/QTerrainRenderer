@@ -53,7 +53,8 @@ void RenderWidget::json_from(nlohmann::json const &json)
   // Heightmap
   json_safe_get(json, "scale_h", scale_h);
   json_safe_get(json, "hmap_h0", hmap_h0);
-  json_safe_get(json, "hmap_w", hmap_w);
+  json_safe_get(json, "hmap_wx", hmap_wx);
+  json_safe_get(json, "hmap_wy", hmap_wy);
   json_safe_get(json, "hmap_h", hmap_h);
 
   // Scene visibility
@@ -156,7 +157,8 @@ nlohmann::json RenderWidget::json_to() const
       // Heightmap
       {"scale_h", scale_h},
       {"hmap_h0", hmap_h0},
-      {"hmap_w", hmap_w},
+      {"hmap_wx", hmap_wx},
+      {"hmap_wy", hmap_wy},
       {"hmap_h", hmap_h},
 
       // Scene visibility

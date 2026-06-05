@@ -146,6 +146,9 @@ public:
   void reset_textures();
 
 protected:
+  // --- Geometry
+  void set_aspect_ratio(float new_aspect_ratio);
+
   // --- OpenGL lifecycle
   void initializeGL() override;
   void resizeGL(int w, int h) override;
@@ -221,7 +224,8 @@ private:
   float hmap_h0 = 0.f;   // hmap zero level
   float hmap_hmin = 0.f; // hmap min level
   float hmap_hmax = 0.f; // hmap max level
-  float hmap_w = 2.f;    // width of sides
+  float hmap_wx = 2.f;   // width of sides
+  float hmap_wy = 2.f;   // width of sides
   float hmap_h = 0.4f;   // elevations scaling (at input)
   int   current_width = 0;
   int   current_height = 0;
