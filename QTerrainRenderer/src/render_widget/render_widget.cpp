@@ -77,12 +77,18 @@ RenderWidget::~RenderWidget()
 {
   if (this->context())
   {
-    // don't try to make context current in destructor Qt might have
-    // already destroyed the context
+    // make THIS widget's GL context current before the ImGui backend
+    // shutdown: it issues glDelete* calls on buffer/program names that only
+    // exist in this widget's context. With another widget's context current,
+    // those deletes destroy the OTHER widget's identically-numbered objects,
+    // and its next ImGui draw segfaults (unbound element buffer -> index
+    // offset read as a client pointer at ~NULL)
+    this->makeCurrent();
     ImGui::SetCurrentContext(this->imgui_context);
     ImGui_ImplOpenGL3_Shutdown();
     ImGui::DestroyContext(this->imgui_context);
     this->imgui_context = nullptr;
+    this->doneCurrent();
   }
 }
 
