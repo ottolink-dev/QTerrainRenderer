@@ -75,7 +75,7 @@ RenderWidget::RenderWidget(const std::string &_title, QWidget *parent)
 
 RenderWidget::~RenderWidget()
 {
-  if (this->context())
+  if (this->context() && this->imgui_context)
   {
     // make THIS widget's GL context current before the ImGui backend
     // shutdown: it issues glDelete* calls on buffer/program names that only
@@ -158,6 +158,10 @@ void RenderWidget::initializeGL()
         "RenderWidget::initializeGL: {} - 3D view disabled for this widget",
         why);
     this->gl_init_failed = true;
+
+    // no ImGui context exists on this path: the input handlers dereference
+    // it via get_imgui_io, so stop all input by disabling the widget
+    this->setEnabled(false);
 
     // deferred: popping a modal dialog from inside initializeGL is unsafe
     QTimer::singleShot(0,
