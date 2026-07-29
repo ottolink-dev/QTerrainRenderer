@@ -5,6 +5,8 @@
 #include <stdexcept>
 
 #include <QOpenGLFunctions>
+#include <QMessageBox>
+#include <QSurfaceFormat>
 
 #include "imgui_impl_glfw.h"
 #include "imgui_impl_opengl3.h"
@@ -25,6 +27,15 @@ RenderWidget::RenderWidget(const std::string &_title, QWidget *parent)
     : QOpenGLWidget(parent), title(_title)
 {
   qtr::Logger::log()->trace("RenderWidget::RenderWidget");
+
+  // NOTE: deliberately no setFormat() here. Requesting 3.3 core per-widget
+  // makes initializeOpenGLFunctions() fail on every run on the Windows/NVIDIA
+  // test machine, including single-viewport projects that worked before -- the
+  // application already runs a QtWebEngine global shared context, and a
+  // per-widget format that conflicts with it cannot be honoured. The driver's
+  // default context does expose 3.3 core there. If a machine is ever found
+  // where the default context is genuinely too old, the fix belongs in a
+  // QSurfaceFormat::setDefaultFormat() call before QApplication, not here.
 
   this->setWindowTitle(this->title.c_str());
   this->setFocusPolicy(Qt::StrongFocus);
@@ -79,6 +90,11 @@ void RenderWidget::clear()
 {
   qtr::Logger::log()->trace("RenderWidget::clear");
 
+  // nothing was created if GL init never completed, and the calls below would
+  // run through unresolved 3.3-core function pointers
+  if (!this->initial_gl_done)
+    return;
+
   this->makeCurrent();
 
   this->reset_heightmap_geometry();
@@ -130,7 +146,57 @@ void RenderWidget::initializeGL()
 
   this->makeCurrent();
 
-  this->initializeOpenGLFunctions();
+  const auto fail_init = [this](const char *why)
+  {
+    qtr::Logger::log()->critical(
+        "RenderWidget::initializeGL: {} - 3D view disabled for this widget",
+        why);
+    this->gl_init_failed = true;
+
+    // deferred: popping a modal dialog from inside initializeGL is unsafe
+    QTimer::singleShot(0,
+                       this,
+                       [this]()
+                       {
+                         QMessageBox::critical(
+                             this,
+                             "3D view unavailable",
+                             "The 3D view could not initialize OpenGL 3.3 "
+                             "(core profile) on this system.\nSee the log for "
+                             "details.");
+                       });
+  };
+
+  if (!this->context() || !this->context()->isValid())
+  {
+    fail_init("no valid OpenGL context");
+    return;
+  }
+
+  if (!this->initializeOpenGLFunctions())
+  {
+    fail_init("OpenGL 3.3 core functions could not be resolved");
+    return;
+  }
+
+  // info level so it shows in release logs: the first thing needed when
+  // debugging driver-specific issues (e.g. otto-link/Hesiod#537)
+  {
+    const QSurfaceFormat obtained = this->context()->format();
+    const char *vendor = reinterpret_cast<const char *>(glGetString(GL_VENDOR));
+    const char *renderer = reinterpret_cast<const char *>(
+        glGetString(GL_RENDERER));
+
+    qtr::Logger::log()->info(
+        "RenderWidget::initializeGL: OpenGL {}.{} {} profile, vendor: {}, "
+        "renderer: {}",
+        obtained.majorVersion(),
+        obtained.minorVersion(),
+        obtained.profile() == QSurfaceFormat::CoreProfile ? "core"
+                                                          : "compatibility",
+        vendor ? vendor : "unknown",
+        renderer ? renderer : "unknown");
+  }
 
   // --- Shaders
 

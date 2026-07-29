@@ -304,6 +304,7 @@ private:
   GLuint                         fbo;
   GLuint                         fbo_depth;
   bool                           initial_gl_done = false;
+  bool                           gl_init_failed = false;
 
   // --- Scene components
   Camera camera_shadow_pass;
