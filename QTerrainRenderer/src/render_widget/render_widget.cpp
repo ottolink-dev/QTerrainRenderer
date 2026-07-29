@@ -159,6 +159,34 @@ void RenderWidget::initializeGL()
         why);
     this->gl_init_failed = true;
 
+    // log what was actually obtained, not what was asked for: without this the
+    // failure message says nothing about why resolution failed. Uses only
+    // QOpenGLContext / QOpenGLFunctions (the ES2 subset, always resolvable) --
+    // the 3.3-core table is what just failed.
+    if (QOpenGLContext *ctx = this->context())
+    {
+      const QSurfaceFormat obtained = ctx->format();
+      const char          *renderer = nullptr;
+
+      if (QOpenGLFunctions *fns = ctx->functions())
+      {
+        fns->initializeOpenGLFunctions();
+        renderer = reinterpret_cast<const char *>(
+            fns->glGetString(GL_RENDERER));
+      }
+
+      qtr::Logger::log()->critical(
+          "RenderWidget::initializeGL: obtained context was OpenGL {}.{} {} "
+          "profile, renderer: {}",
+          obtained.majorVersion(),
+          obtained.minorVersion(),
+          obtained.profile() == QSurfaceFormat::CoreProfile ? "core"
+          : obtained.profile() == QSurfaceFormat::CompatibilityProfile
+              ? "compatibility"
+              : "no",
+          renderer ? renderer : "unknown");
+    }
+
     // no ImGui context exists on this path: the input handlers dereference
     // it via get_imgui_io, so stop all input by disabling the widget
     this->setEnabled(false);
@@ -429,7 +457,11 @@ void RenderWidget::resizeEvent(QResizeEvent *event)
 
 void RenderWidget::resizeGL(int w, int h)
 {
-  if (!isValid())
+  // isValid() is not enough: when initializeOpenGLFunctions() fails the context
+  // is still valid, only the versioned function table is unresolved, so
+  // glViewport below would call through a null pointer. setEnabled(false) stops
+  // input events but Qt keeps delivering resize/paint. Same guard as paintGL.
+  if (!isValid() || !this->initial_gl_done)
     return;
 
   this->makeCurrent();
