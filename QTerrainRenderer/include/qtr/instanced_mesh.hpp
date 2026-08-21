@@ -19,6 +19,34 @@ template <typename T> class InstancedMesh : protected QOpenGLFunctions_3_3_Core
 {
 public:
   InstancedMesh() : instance_vbo(0), instance_count(0) {}
+  ~InstancedMesh() { this->destroy(); }
+
+  // Rule of 5: non-copyable, movable
+  InstancedMesh(const InstancedMesh &) = delete;
+  InstancedMesh &operator=(const InstancedMesh &) = delete;
+
+  InstancedMesh(InstancedMesh &&other) noexcept
+      : sp_mesh(std::move(other.sp_mesh)), instance_vbo(other.instance_vbo),
+        instance_count(other.instance_count)
+  {
+    other.instance_vbo = 0;
+    other.instance_count = 0;
+  }
+
+  InstancedMesh &operator=(InstancedMesh &&other) noexcept
+  {
+    if (this != &other)
+    {
+      this->destroy();
+      this->sp_mesh = std::move(other.sp_mesh);
+      this->instance_vbo = other.instance_vbo;
+      this->instance_count = other.instance_count;
+
+      other.instance_vbo = 0;
+      other.instance_count = 0;
+    }
+    return *this;
+  }
 
   void create(std::shared_ptr<Mesh> sp_base_mesh, const std::vector<T> &instances)
   {
