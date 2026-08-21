@@ -46,7 +46,7 @@ else()
 
   # Common to all configs
   set(CMAKE_CXX_FLAGS
-      "${CMAKE_CXX_FLAGS} -Ofast -ffast-math -Wall -Wextra -Wno-dangling-reference -pthread -Wno-deprecated-declarations"
+      "${CMAKE_CXX_FLAGS} -O3 -Wall -Wextra -Wno-dangling-reference -pthread -Wno-deprecated-declarations"
   )
 
   # Add per-configuration flags
