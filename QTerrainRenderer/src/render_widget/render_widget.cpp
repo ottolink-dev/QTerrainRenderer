@@ -4,8 +4,8 @@
 
 #include <stdexcept>
 
-#include <QOpenGLFunctions>
 #include <QMessageBox>
+#include <QOpenGLFunctions>
 #include <QSurfaceFormat>
 
 #include "imgui_impl_glfw.h"
@@ -171,8 +171,7 @@ void RenderWidget::initializeGL()
       if (QOpenGLFunctions *fns = ctx->functions())
       {
         fns->initializeOpenGLFunctions();
-        renderer = reinterpret_cast<const char *>(
-            fns->glGetString(GL_RENDERER));
+        renderer = reinterpret_cast<const char *>(fns->glGetString(GL_RENDERER));
       }
 
       qtr::Logger::log()->critical(
@@ -180,10 +179,9 @@ void RenderWidget::initializeGL()
           "profile, renderer: {}",
           obtained.majorVersion(),
           obtained.minorVersion(),
-          obtained.profile() == QSurfaceFormat::CoreProfile ? "core"
-          : obtained.profile() == QSurfaceFormat::CompatibilityProfile
-              ? "compatibility"
-              : "no",
+          obtained.profile() == QSurfaceFormat::CoreProfile            ? "core"
+          : obtained.profile() == QSurfaceFormat::CompatibilityProfile ? "compatibility"
+                                                                       : "no",
           renderer ? renderer : "unknown");
     }
 
@@ -221,17 +219,15 @@ void RenderWidget::initializeGL()
   // debugging driver-specific issues (e.g. otto-link/Hesiod#537)
   {
     const QSurfaceFormat obtained = this->context()->format();
-    const char *vendor = reinterpret_cast<const char *>(glGetString(GL_VENDOR));
-    const char *renderer = reinterpret_cast<const char *>(
-        glGetString(GL_RENDERER));
+    const char          *vendor = reinterpret_cast<const char *>(glGetString(GL_VENDOR));
+    const char *renderer = reinterpret_cast<const char *>(glGetString(GL_RENDERER));
 
     qtr::Logger::log()->info(
         "RenderWidget::initializeGL: OpenGL {}.{} {} profile, vendor: {}, "
         "renderer: {}",
         obtained.majorVersion(),
         obtained.minorVersion(),
-        obtained.profile() == QSurfaceFormat::CoreProfile ? "core"
-                                                          : "compatibility",
+        obtained.profile() == QSurfaceFormat::CoreProfile ? "core" : "compatibility",
         vendor ? vendor : "unknown",
         renderer ? renderer : "unknown");
   }
@@ -469,7 +465,10 @@ void RenderWidget::resizeGL(int w, int h)
   if (this->imgui_context)
   {
     ImGui::SetCurrentContext(this->imgui_context);
-    this->get_imgui_io().DisplaySize = ImVec2(float(w), float(h));
+    const float dpr = this->devicePixelRatioF();
+    this->get_imgui_io().DisplaySize = ImVec2(float(this->width()),
+                                              float(this->height()));
+    this->get_imgui_io().DisplayFramebufferScale = ImVec2(dpr, dpr);
   }
   this->need_update = true;
   this->doneCurrent();
