@@ -12,6 +12,30 @@ Texture::Texture() : id(0), width(0), height(0) {}
 
 Texture::~Texture() { this->destroy(); }
 
+Texture::Texture(Texture &&other) noexcept
+    : id(other.id), width(other.width), height(other.height)
+{
+  other.id = 0;
+  other.width = 0;
+  other.height = 0;
+}
+
+Texture &Texture::operator=(Texture &&other) noexcept
+{
+  if (this != &other)
+  {
+    this->destroy();
+    this->id = other.id;
+    this->width = other.width;
+    this->height = other.height;
+
+    other.id = 0;
+    other.width = 0;
+    other.height = 0;
+  }
+  return *this;
+}
+
 void Texture::bind(int unit)
 {
   if (this->is_active())

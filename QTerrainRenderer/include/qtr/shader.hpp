@@ -14,6 +14,12 @@ public:
   Shader() = default;
   ~Shader();
 
+  // Rule of 5: non-copyable, movable
+  Shader(const Shader &) = delete;
+  Shader &operator=(const Shader &) = delete;
+  Shader(Shader &&) noexcept = default;
+  Shader &operator=(Shader &&) noexcept = default;
+
   bool from_code(const std::string &vertex_code, const std::string &fragment_code);
   bool from_file(const std::string &vertex_path, const std::string &fragment_path);
 

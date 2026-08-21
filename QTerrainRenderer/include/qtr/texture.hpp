@@ -16,6 +16,12 @@ public:
   Texture();
   ~Texture();
 
+  // Rule of 5: non-copyable, movable
+  Texture(const Texture &) = delete;
+  Texture &operator=(const Texture &) = delete;
+  Texture(Texture &&other) noexcept;
+  Texture &operator=(Texture &&other) noexcept;
+
   bool from_float_vector(const std::vector<float> &data, int new_width);
   bool from_image_8bit_grayscale(const std::vector<uint8_t> &img, int new_width);
   bool from_image_8bit_rgb(const std::vector<uint8_t> &img, int new_width);
@@ -34,9 +40,9 @@ public:
   bool is_active() const;
 
 private:
-  GLuint id;
-  int    width;
-  int    height;
+  GLuint id = 0;
+  int    width = 0;
+  int    height = 0;
 };
 
 } // namespace qtr

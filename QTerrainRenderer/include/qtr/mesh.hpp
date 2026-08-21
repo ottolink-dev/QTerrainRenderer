@@ -24,6 +24,12 @@ public:
   Mesh();
   ~Mesh();
 
+  // Rule of 5: non-copyable, movable
+  Mesh(const Mesh &) = delete;
+  Mesh &operator=(const Mesh &) = delete;
+  Mesh(Mesh &&other) noexcept;
+  Mesh &operator=(Mesh &&other) noexcept;
+
   void create(std::vector<Vertex> vertices,
               std::vector<uint>   indices = {},
               bool                store_cpu_copy = false,
@@ -46,7 +52,7 @@ private:
   GLuint ebo = 0;
   size_t vertex_count = 0;
   size_t index_count = 0;
-  bool   has_indices;
+  bool   has_indices = false;
 
   // storage (optional)
   std::vector<Vertex> vertices;
