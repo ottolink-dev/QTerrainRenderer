@@ -80,8 +80,7 @@ void RenderWidget::render_scene_render_3d()
     }
 
     // points
-    auto *points_drawable =
-        this->sp_mesh_manager->get_drawable(keys::mesh::points);
+    auto *points_drawable = this->sp_mesh_manager->get_drawable(keys::mesh::points);
     if (points_drawable && points_drawable->render_params.visible)
     {
       p_shader->setUniformValue("add_ambiant_occlusion", false);
@@ -123,8 +122,7 @@ void RenderWidget::render_scene_render_3d()
     if (rocks_drawable && rocks_drawable->render_params.visible)
       rocks_drawable->draw(p_shader);
 
-    auto *leaves_drawable =
-        this->sp_mesh_manager->get_drawable(keys::mesh::leaves);
+    auto *leaves_drawable = this->sp_mesh_manager->get_drawable(keys::mesh::leaves);
     if (leaves_drawable && leaves_drawable->render_params.visible)
       leaves_drawable->draw(p_shader);
 

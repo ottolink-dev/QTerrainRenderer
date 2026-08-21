@@ -60,8 +60,7 @@ void RenderWidget::render_shadow_map(const glm::mat4 &model,
         rocks_drawable->render_params.cast_shadow)
       rocks_drawable->draw(p_shader);
 
-    auto *leaves_drawable =
-        this->sp_mesh_manager->get_drawable(keys::mesh::leaves);
+    auto *leaves_drawable = this->sp_mesh_manager->get_drawable(keys::mesh::leaves);
     if (leaves_drawable && leaves_drawable->render_params.visible &&
         leaves_drawable->render_params.cast_shadow)
       leaves_drawable->draw(p_shader);

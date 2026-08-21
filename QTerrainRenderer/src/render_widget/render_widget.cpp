@@ -75,12 +75,15 @@ RenderWidget::RenderWidget(const std::string &_title, QWidget *parent)
   this->sp_mesh_manager->add_instanced_mesh(keys::mesh::leaves);
 
   // configure default render parameters
-  this->sp_mesh_manager->get_render_params(keys::mesh::plane)->base_color =
-      glm::vec3(0.2f, 0.2f, 0.2f);
-  this->sp_mesh_manager->get_render_params(keys::mesh::path)->base_color =
-      glm::vec3(1.0f, 0.0f, 1.0f);
-  this->sp_mesh_manager->get_render_params(keys::mesh::water)->cast_shadow =
-      false;
+  this->sp_mesh_manager->get_render_params(keys::mesh::plane)->base_color = glm::vec3(
+      0.2f,
+      0.2f,
+      0.2f);
+  this->sp_mesh_manager->get_render_params(keys::mesh::path)->base_color = glm::vec3(
+      1.0f,
+      0.0f,
+      1.0f);
+  this->sp_mesh_manager->get_render_params(keys::mesh::water)->cast_shadow = false;
 
   // add placeholder for each texture
   const std::vector<std::string> tex_names = {keys::tex::albedo,
@@ -318,12 +321,11 @@ void RenderWidget::initializeGL()
     // create framebuffer for shadow depth
     glGenFramebuffers(1, &this->fbo);
     glBindFramebuffer(GL_FRAMEBUFFER, this->fbo);
-    glFramebufferTexture2D(
-        GL_FRAMEBUFFER,
-        GL_DEPTH_ATTACHMENT,
-        GL_TEXTURE_2D,
-        this->sp_texture_manager->get(keys::tex::shadow_map)->get_id(),
-        0);
+    glFramebufferTexture2D(GL_FRAMEBUFFER,
+                           GL_DEPTH_ATTACHMENT,
+                           GL_TEXTURE_2D,
+                           this->sp_texture_manager->get(keys::tex::shadow_map)->get_id(),
+                           0);
     glDrawBuffer(GL_NONE);
     glReadBuffer(GL_NONE);
 
@@ -597,8 +599,7 @@ void RenderWidget::set_leaves(const std::vector<float> &x,
   float r = 1.f;
   generate_grass_leaf_2sided(*mesh, glm::vec3(0.f, 0.f, 0.f), r, 0.1f * r);
 
-  this->sp_mesh_manager->get_instanced_mesh(keys::mesh::leaves)
-      ->create(mesh, instances);
+  this->sp_mesh_manager->get_instanced_mesh(keys::mesh::leaves)->create(mesh, instances);
   this->need_update = true;
   this->doneCurrent();
 }
@@ -710,8 +711,7 @@ void RenderWidget::set_rocks(const std::vector<float> &x,
   auto mesh = std::make_shared<Mesh>();
   generate_rock(*mesh, 1.f, 0.3f, 0);
 
-  this->sp_mesh_manager->get_instanced_mesh(keys::mesh::rocks)
-      ->create(mesh, instances);
+  this->sp_mesh_manager->get_instanced_mesh(keys::mesh::rocks)->create(mesh, instances);
   this->need_update = true;
   this->doneCurrent();
 }
@@ -761,8 +761,7 @@ void RenderWidget::set_trees(const std::vector<float> &x,
   float r = 1.f;
   generate_tree(*mesh, r, 0.1f * r, 5.f * r, r, 5);
 
-  this->sp_mesh_manager->get_instanced_mesh(keys::mesh::trees)
-      ->create(mesh, instances);
+  this->sp_mesh_manager->get_instanced_mesh(keys::mesh::trees)->create(mesh, instances);
   this->need_update = true;
   this->doneCurrent();
 }
