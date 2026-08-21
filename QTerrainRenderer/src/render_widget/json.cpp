@@ -65,6 +65,7 @@ void RenderWidget::json_from(nlohmann::json const &json)
   json_safe_get(json, "render_rocks", render_rocks);
   json_safe_get(json, "render_trees", render_trees);
   json_safe_get(json, "render_water", render_water);
+  json_safe_get(json, "render_leaves", render_leaves);
 
   // Normals
   json_safe_get(json, "normal_visualization", normal_visualization);
@@ -169,6 +170,7 @@ nlohmann::json RenderWidget::json_to() const
       {"render_rocks", render_rocks},
       {"render_trees", render_trees},
       {"render_water", render_water},
+      {"render_leaves", render_leaves},
 
       // Normals
       {"normal_visualization", normal_visualization},
