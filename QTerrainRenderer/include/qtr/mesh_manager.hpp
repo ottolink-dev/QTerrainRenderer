@@ -39,13 +39,27 @@ public:
 class StandardDrawableMesh : public IDrawableMesh
 {
 public:
-  Mesh mesh;
+  std::shared_ptr<Mesh> sp_mesh;
 
-  void draw(QOpenGLShaderProgram * /*p_shader*/) override { mesh.draw(); }
+  StandardDrawableMesh() : sp_mesh(std::make_shared<Mesh>()) {}
+  explicit StandardDrawableMesh(std::shared_ptr<Mesh> mesh_in)
+      : sp_mesh(std::move(mesh_in))
+  {
+  }
 
-  void destroy() override { mesh.destroy(); }
+  void draw(QOpenGLShaderProgram * /*p_shader*/) override
+  {
+    if (sp_mesh)
+      sp_mesh->draw();
+  }
 
-  bool is_active() const override { return mesh.is_active(); }
+  void destroy() override
+  {
+    if (sp_mesh)
+      sp_mesh->destroy();
+  }
+
+  bool is_active() const override { return sp_mesh ? sp_mesh->is_active() : false; }
 };
 
 template <typename InstanceT = BaseInstance>
@@ -68,8 +82,12 @@ public:
   ~MeshManager();
 
   // Mesh registration
-  Mesh                        &add_mesh(const std::string &name);
+  Mesh &add_mesh(const std::string &name);
+  void  set_mesh(const std::string &name, std::shared_ptr<Mesh> sp_mesh);
   InstancedMesh<BaseInstance> &add_instanced_mesh(const std::string &name);
+  void                         set_instanced_mesh(const std::string               &name,
+                                                  std::shared_ptr<Mesh>            sp_mesh,
+                                                  const std::vector<BaseInstance> &instances);
 
   // Accessors
   Mesh                        *get_mesh(const std::string &name);

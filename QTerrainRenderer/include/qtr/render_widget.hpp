@@ -84,6 +84,11 @@ public:
   void reset_mesh(const std::string &name);
   void reset_meshes();
 
+  void set_mesh(const std::string &name, std::shared_ptr<Mesh> sp_mesh);
+  void set_instanced_mesh(const std::string               &name,
+                          std::shared_ptr<Mesh>            sp_mesh,
+                          const std::vector<BaseInstance> &instances);
+
   void set_heightmap_geometry(const std::vector<float> &data,
                               int                       width,
                               int                       height,
@@ -94,28 +99,11 @@ public:
                           int                       height,
                           float                     exclude_below);
 
-  void set_points(const std::vector<float> &x,
-                  const std::vector<float> &y,
-                  const std::vector<float> &h);
-
-  void set_path(const std::vector<float> &x,
-                const std::vector<float> &y,
-                const std::vector<float> &h);
-
-  void set_rocks(const std::vector<float> &x,
-                 const std::vector<float> &y,
-                 const std::vector<float> &h,
-                 const std::vector<float> &radius);
-
-  void set_trees(const std::vector<float> &x,
-                 const std::vector<float> &y,
-                 const std::vector<float> &h,
-                 const std::vector<float> &radius);
-
-  void set_leaves(const std::vector<float> &x,
-                  const std::vector<float> &y,
-                  const std::vector<float> &h,
-                  const std::vector<float> &radius);
+  // --- Heightmap parameters
+  float get_hmap_wx() const { return hmap_wx; }
+  float get_hmap_wy() const { return hmap_wy; }
+  float get_hmap_h0() const { return hmap_h0; }
+  float get_hmap_h() const { return hmap_h; }
 
   // --- Textures
   void set_texture(const std::string          &name,

@@ -567,104 +567,24 @@ void RenderWidget::set_heightmap_geometry(const std::vector<float> &data,
   this->doneCurrent();
 }
 
-void RenderWidget::set_leaves(const std::vector<float> &x,
-                              const std::vector<float> &y,
-                              const std::vector<float> &h,
-                              const std::vector<float> &radius)
+void RenderWidget::set_mesh(const std::string &name, std::shared_ptr<Mesh> sp_mesh)
 {
-  qtr::Logger::log()->trace("RenderWidget::set_leaves");
+  qtr::Logger::log()->trace("RenderWidget::set_mesh: {}", name);
 
   this->makeCurrent();
-
-  if (x.size() != y.size() || x.size() != h.size() || x.size() != radius.size())
-    throw std::invalid_argument("RenderWidget::set_leaves: vector sizes does not match");
-
-  std::vector<BaseInstance> instances;
-
-  glm::vec3 color = glm::vec3(0.f, 1.f, 0.);
-
-  for (size_t k = 0; k < x.size(); ++k)
-  {
-    float xs = 0.5f * this->hmap_wx * (2.f * x[k] - 1.f);
-    float hs = this->hmap_h0 + this->hmap_h * h[k];
-    float ys = 0.5f * this->hmap_wy * (2.f * y[k] - 1.f);
-    float rs = 2.f * radius[k];
-    float rotation = (float)std::rand() / RAND_MAX * glm::two_pi<float>();
-
-    instances.push_back({glm::vec3(xs, hs, ys), rs, rotation, color});
-  }
-
-  // unit sphere
-  auto  mesh = std::make_shared<Mesh>();
-  float r = 1.f;
-  generate_grass_leaf_2sided(*mesh, glm::vec3(0.f, 0.f, 0.f), r, 0.1f * r);
-
-  this->sp_mesh_manager->get_instanced_mesh(keys::mesh::leaves)->create(mesh, instances);
+  this->sp_mesh_manager->set_mesh(name, sp_mesh);
   this->need_update = true;
   this->doneCurrent();
 }
 
-void RenderWidget::set_path(const std::vector<float> &x,
-                            const std::vector<float> &y,
-                            const std::vector<float> &h)
+void RenderWidget::set_instanced_mesh(const std::string               &name,
+                                      std::shared_ptr<Mesh>            sp_mesh,
+                                      const std::vector<BaseInstance> &instances)
 {
-  qtr::Logger::log()->trace("RenderWidget::set_path");
+  qtr::Logger::log()->trace("RenderWidget::set_instanced_mesh: {}", name);
 
   this->makeCurrent();
-
-  if (x.size() != y.size() || x.size() != h.size())
-    throw std::invalid_argument("RenderWidget::set_path: vector sizes does not match");
-
-  std::vector<glm::vec3> points;
-  for (size_t k = 0; k < x.size(); ++k)
-  {
-    // rescale to render size
-    float xs = 0.5f * this->hmap_wx * (2.f * x[k] - 1.f);
-    float hs = this->hmap_h0 + this->hmap_h * h[k];
-    float ys = 0.5f * this->hmap_wy * (2.f * y[k] - 1.f);
-
-    points.push_back(glm::vec3(xs, hs, ys));
-  }
-
-  // TODO scale with point value
-
-  generate_path(*this->sp_mesh_manager->get_mesh(keys::mesh::path), points, 0.01f);
-  this->need_update = true;
-  this->doneCurrent();
-}
-
-void RenderWidget::set_points(const std::vector<float> &x,
-                              const std::vector<float> &y,
-                              const std::vector<float> &h)
-{
-  qtr::Logger::log()->trace("RenderWidget::set_points");
-
-  this->makeCurrent();
-
-  if (x.size() != y.size() || x.size() != h.size())
-    throw std::invalid_argument("RenderWidget::set_points: vector sizes does not match");
-
-  std::vector<BaseInstance> instances;
-
-  float     scale = 0.01f;
-  float     rotation = 0.f;
-  glm::vec3 color = glm::vec3(0.f, 1.f, 0.);
-
-  for (size_t k = 0; k < x.size(); ++k)
-  {
-    float xs = 0.5f * this->hmap_wx * (2.f * x[k] - 1.f);
-    float hs = this->hmap_h0 + this->hmap_h * h[k];
-    float ys = 0.5f * this->hmap_wy * (2.f * y[k] - 1.f);
-
-    instances.push_back({glm::vec3(xs, hs, ys), scale, rotation, color});
-  }
-
-  // unit sphere
-  auto sphere_mesh = std::make_shared<Mesh>();
-  generate_sphere(*sphere_mesh, 1.f);
-
-  this->sp_mesh_manager->get_instanced_mesh(keys::mesh::points)
-      ->create(sphere_mesh, instances);
+  this->sp_mesh_manager->set_instanced_mesh(name, sp_mesh, instances);
   this->need_update = true;
   this->doneCurrent();
 }
@@ -680,42 +600,6 @@ void RenderWidget::set_mesh_visible(const std::string &name, bool visible)
   this->need_update = true;
 }
 
-void RenderWidget::set_rocks(const std::vector<float> &x,
-                             const std::vector<float> &y,
-                             const std::vector<float> &h,
-                             const std::vector<float> &radius)
-{
-  qtr::Logger::log()->trace("RenderWidget::set_rocks");
-
-  this->makeCurrent();
-
-  if (x.size() != y.size() || x.size() != h.size() || x.size() != radius.size())
-    throw std::invalid_argument("RenderWidget::set_rocks: vector sizes does not match");
-
-  std::vector<BaseInstance> instances;
-
-  glm::vec3 color = glm::vec3(0.f, 1.f, 0.);
-
-  for (size_t k = 0; k < x.size(); ++k)
-  {
-    float xs = 0.5f * this->hmap_wx * (2.f * x[k] - 1.f);
-    float hs = this->hmap_h0 + this->hmap_h * h[k];
-    float ys = 0.5f * this->hmap_wy * (2.f * y[k] - 1.f);
-    float rs = 2.f * radius[k];
-    float rotation = (float)std::rand() / RAND_MAX * glm::two_pi<float>();
-
-    instances.push_back({glm::vec3(xs, hs, ys), rs, rotation, color});
-  }
-
-  // unit sphere
-  auto mesh = std::make_shared<Mesh>();
-  generate_rock(*mesh, 1.f, 0.3f, 0);
-
-  this->sp_mesh_manager->get_instanced_mesh(keys::mesh::rocks)->create(mesh, instances);
-  this->need_update = true;
-  this->doneCurrent();
-}
-
 void RenderWidget::set_texture(const std::string          &name,
                                const std::vector<uint8_t> &data,
                                int                         width)
@@ -727,43 +611,6 @@ void RenderWidget::set_texture(const std::string          &name,
   if (this->sp_texture_manager->get(name))
     this->sp_texture_manager->get(name)->from_image_8bit_rgba(data, width);
   this->need_update = true;
-}
-
-void RenderWidget::set_trees(const std::vector<float> &x,
-                             const std::vector<float> &y,
-                             const std::vector<float> &h,
-                             const std::vector<float> &radius)
-{
-  qtr::Logger::log()->trace("RenderWidget::set_trees");
-
-  this->makeCurrent();
-
-  if (x.size() != y.size() || x.size() != h.size() || x.size() != radius.size())
-    throw std::invalid_argument("RenderWidget::set_trees: vector sizes does not match");
-
-  std::vector<BaseInstance> instances;
-
-  glm::vec3 color = glm::vec3(0.f, 1.f, 0.);
-
-  for (size_t k = 0; k < x.size(); ++k)
-  {
-    float xs = 0.5f * this->hmap_wx * (2.f * x[k] - 1.f);
-    float hs = this->hmap_h0 + this->hmap_h * h[k];
-    float ys = 0.5f * this->hmap_wy * (2.f * y[k] - 1.f);
-    float rs = 2.f * radius[k];
-    float rotation = (float)std::rand() / RAND_MAX * glm::two_pi<float>();
-
-    instances.push_back({glm::vec3(xs, hs, ys), rs, rotation, color});
-  }
-
-  // unit sphere
-  auto  mesh = std::make_shared<Mesh>();
-  float r = 1.f;
-  generate_tree(*mesh, r, 0.1f * r, 5.f * r, r, 5);
-
-  this->sp_mesh_manager->get_instanced_mesh(keys::mesh::trees)->create(mesh, instances);
-  this->need_update = true;
-  this->doneCurrent();
 }
 
 void RenderWidget::set_water_geometry(const std::vector<float> &data,

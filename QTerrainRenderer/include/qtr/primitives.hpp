@@ -75,4 +75,37 @@ void generate_tree(Mesh &mesh,
                    float crown_radius,
                    int   trunk_segments = 16);
 
+// Forward declaration
+class RenderWidget;
+
+// --- High-level RenderWidget helper setters
+void set_points(RenderWidget             &renderer,
+                const std::vector<float> &x,
+                const std::vector<float> &y,
+                const std::vector<float> &h);
+
+void set_path(RenderWidget             &renderer,
+              const std::vector<float> &x,
+              const std::vector<float> &y,
+              const std::vector<float> &h,
+              float                     width = 0.01f);
+
+void set_rocks(RenderWidget             &renderer,
+               const std::vector<float> &x,
+               const std::vector<float> &y,
+               const std::vector<float> &h,
+               const std::vector<float> &radius);
+
+void set_trees(RenderWidget             &renderer,
+               const std::vector<float> &x,
+               const std::vector<float> &y,
+               const std::vector<float> &h,
+               const std::vector<float> &radius);
+
+void set_leaves(RenderWidget             &renderer,
+                const std::vector<float> &x,
+                const std::vector<float> &y,
+                const std::vector<float> &h,
+                const std::vector<float> &radius);
+
 } // namespace qtr

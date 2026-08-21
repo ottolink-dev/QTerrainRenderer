@@ -14,18 +14,57 @@ MeshManager::~MeshManager()
 
 Mesh &MeshManager::add_mesh(const std::string &name)
 {
+  auto it = this->drawables.find(name);
+  if (it != this->drawables.end())
+  {
+    auto *std_mesh = dynamic_cast<StandardDrawableMesh *>(it->second.get());
+    if (std_mesh && std_mesh->sp_mesh)
+      return *std_mesh->sp_mesh;
+  }
   auto  standard_drawable = std::make_unique<StandardDrawableMesh>();
-  Mesh &ref = standard_drawable->mesh;
+  Mesh &ref = *standard_drawable->sp_mesh;
   this->drawables[name] = std::move(standard_drawable);
   return ref;
 }
 
+void MeshManager::set_mesh(const std::string &name, std::shared_ptr<Mesh> sp_mesh)
+{
+  auto it = this->drawables.find(name);
+  if (it != this->drawables.end())
+  {
+    auto *std_mesh = dynamic_cast<StandardDrawableMesh *>(it->second.get());
+    if (std_mesh)
+    {
+      std_mesh->sp_mesh = sp_mesh;
+      return;
+    }
+  }
+  auto standard_drawable = std::make_unique<StandardDrawableMesh>(sp_mesh);
+  this->drawables[name] = std::move(standard_drawable);
+}
+
 InstancedMesh<BaseInstance> &MeshManager::add_instanced_mesh(const std::string &name)
 {
+  auto it = this->drawables.find(name);
+  if (it != this->drawables.end())
+  {
+    auto *inst_mesh = dynamic_cast<InstancedDrawableMesh<BaseInstance> *>(
+        it->second.get());
+    if (inst_mesh)
+      return inst_mesh->instanced_mesh;
+  }
   auto instanced_drawable = std::make_unique<InstancedDrawableMesh<BaseInstance>>();
   InstancedMesh<BaseInstance> &ref = instanced_drawable->instanced_mesh;
   this->drawables[name] = std::move(instanced_drawable);
   return ref;
+}
+
+void MeshManager::set_instanced_mesh(const std::string               &name,
+                                     std::shared_ptr<Mesh>            sp_mesh,
+                                     const std::vector<BaseInstance> &instances)
+{
+  InstancedMesh<BaseInstance> &inst_mesh = this->add_instanced_mesh(name);
+  inst_mesh.create(sp_mesh, instances);
 }
 
 Mesh *MeshManager::get_mesh(const std::string &name)
@@ -35,7 +74,7 @@ Mesh *MeshManager::get_mesh(const std::string &name)
   {
     auto *std_mesh = dynamic_cast<StandardDrawableMesh *>(it->second.get());
     if (std_mesh)
-      return &std_mesh->mesh;
+      return std_mesh->sp_mesh.get();
   }
   qtr::Logger::log()->error("MeshManager::get_mesh: mesh not found or wrong type: {}",
                             name);

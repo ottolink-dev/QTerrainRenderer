@@ -48,25 +48,24 @@ int main(int argc, char *argv[])
   }
 
   {
-    std::vector<float> x, y, h;
-    x = {0.05f, 0.1f, 0.2f, 0.7f, 0.8f};
-    y = {0.2f, 0.2f, 0.4f, 0.7f, 0.8f};
-    h = {0.8f, 0.2f, 1.f, 0.5f, 0.7f};
+    std::vector<float> x = {0.05f, 0.1f, 0.2f, 0.7f, 0.8f};
+    std::vector<float> y = {0.2f, 0.2f, 0.4f, 0.7f, 0.8f};
+    std::vector<float> h = {0.8f, 0.2f, 1.f, 0.5f, 0.7f};
 
-    renderer->set_points(x, y, h);
+    qtr::set_points(*renderer, x, y, h);
     renderer->reset_mesh(qtr::keys::mesh::points);
   }
 
   {
-    std::vector<float> x, y, h;
-    x = {0.05f, 0.1f, 0.2f, 0.7f, 0.8f};
-    y = {0.2f, 0.2f, 0.4f, 0.7f, 0.8f};
-    h = {0.8f, 0.2f, 1.f, 0.5f, 0.7f};
+    std::vector<float> x = {0.05f, 0.1f, 0.2f, 0.7f, 0.8f};
+    std::vector<float> y = {0.2f, 0.2f, 0.4f, 0.7f, 0.8f};
+    std::vector<float> h = {0.8f, 0.2f, 1.f, 0.5f, 0.7f};
 
-    renderer->set_path(x, y, h);
+    qtr::set_path(*renderer, x, y, h);
     renderer->reset_mesh(qtr::keys::mesh::path);
   }
 
+  if (false)
   {
     size_t             n = 50000;
     std::vector<float> x, y, h, r;
@@ -79,9 +78,9 @@ int main(int argc, char *argv[])
       r.push_back(0.001f * (float)std::rand() / RAND_MAX);
     }
 
-    // renderer->set_trees(x, y, h, r);
-    // renderer->set_leaves(x, y, h, r);
-    // renderer->reset_leaves();
+    qtr::set_trees(*renderer, x, y, h, r);
+    qtr::set_leaves(*renderer, x, y, h, r);
+    renderer->reset_mesh(qtr::keys::mesh::leaves);
   }
 
   return app.exec();
