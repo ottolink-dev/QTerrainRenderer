@@ -18,6 +18,7 @@
 #include "qtr/instanced_mesh.hpp"
 #include "qtr/light.hpp"
 #include "qtr/mesh.hpp"
+#include "qtr/mesh_manager.hpp"
 #include "qtr/shader_manager.hpp"
 #include "qtr/texture.hpp"
 #include "qtr/texture_manager.hpp"
@@ -67,28 +68,14 @@ public:
   void           json_from(nlohmann::json const &json);
   nlohmann::json json_to() const;
 
-  // --- Setters
+  // --- Setters / Getters
   void set_render_type(const RenderType &new_render_type);
 
   bool get_bypass_texture_albedo() const;
-  bool get_render_plane() const;
-  bool get_render_points() const;
-  bool get_render_path() const;
-  bool get_render_hmap() const;
-  bool get_render_rocks() const;
-  bool get_render_trees() const;
-  bool get_render_water() const;
-  bool get_render_leaves() const;
-
   void set_bypass_texture_albedo(bool new_state);
-  void set_render_plane(bool new_state);
-  void set_render_points(bool new_state);
-  void set_render_path(bool new_state);
-  void set_render_hmap(bool new_state);
-  void set_render_rocks(bool new_state);
-  void set_render_trees(bool new_state);
-  void set_render_water(bool new_state);
-  void set_render_leaves(bool new_state);
+
+  bool is_mesh_visible(const std::string &name) const;
+  void set_mesh_visible(const std::string &name, bool visible);
 
   // --- QWidget interface
   QSize sizeHint() const override;
@@ -96,47 +83,44 @@ public:
   // --- Geometry
   void clear(); // geom and texture
 
-  Mesh &get_water_mesh();
+  MeshManager &get_mesh_manager();
+  Mesh        &get_water_mesh();
+
+  void reset_mesh(const std::string &name);
+  void reset_meshes();
 
   void set_heightmap_geometry(const std::vector<float> &data,
                               int                       width,
                               int                       height,
                               bool                      add_skirt = true);
-  void reset_heightmap_geometry();
 
   void set_water_geometry(const std::vector<float> &data,
                           int                       width,
                           int                       height,
                           float                     exclude_below);
-  void reset_water_geometry();
 
   void set_points(const std::vector<float> &x,
                   const std::vector<float> &y,
                   const std::vector<float> &h);
-  void reset_points();
 
   void set_path(const std::vector<float> &x,
                 const std::vector<float> &y,
                 const std::vector<float> &h);
-  void reset_path();
 
   void set_rocks(const std::vector<float> &x,
                  const std::vector<float> &y,
                  const std::vector<float> &h,
                  const std::vector<float> &radius);
-  void reset_rocks();
 
   void set_trees(const std::vector<float> &x,
                  const std::vector<float> &y,
                  const std::vector<float> &h,
                  const std::vector<float> &radius);
-  void reset_trees();
 
   void set_leaves(const std::vector<float> &x,
                   const std::vector<float> &y,
                   const std::vector<float> &h,
                   const std::vector<float> &radius);
-  void reset_leaves();
 
   // --- Textures
   void set_texture(const std::string          &name,
@@ -233,16 +217,6 @@ private:
 
   // --- Rendering parameters
 
-  // Scene components visibility
-  bool render_plane = true;
-  bool render_points = true;
-  bool render_path = true;
-  bool render_hmap = true;
-  bool render_rocks = true;
-  bool render_trees = true;
-  bool render_water = true;
-  bool render_leaves = true;
-
   // Normals
   bool  normal_visualization = false;
   float normal_map_scaling = 1.f;
@@ -311,15 +285,7 @@ private:
   Camera camera;
   Light  light;
 
-  Mesh                        plane;
-  Mesh                        hmap;
-  Mesh                        water_mesh;
-  Mesh                        path_mesh;
-  InstancedMesh<BaseInstance> points_instanced_mesh;
-  InstancedMesh<BaseInstance> trees_instanced_mesh;
-  InstancedMesh<BaseInstance> rocks_instanced_mesh;
-  InstancedMesh<BaseInstance> leaves_instanced_mesh;
-
+  std::unique_ptr<MeshManager>    sp_mesh_manager;
   std::unique_ptr<TextureManager> sp_texture_manager;
 
   // --- ImGUI

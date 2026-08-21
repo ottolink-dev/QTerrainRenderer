@@ -28,23 +28,35 @@ void RenderWidget::render_depth_map(const glm::mat4 &model,
     p_shader->setUniformValue("view", toQMat(view));
     p_shader->setUniformValue("projection", toQMat(projection));
 
-    if (this->render_plane)
-      this->plane.draw();
+    auto *plane_drawable = this->sp_mesh_manager->get_drawable(QTR_MESH_PLANE);
+    if (plane_drawable && plane_drawable->render_params.visible &&
+        plane_drawable->render_params.depth_pass)
+      plane_drawable->draw(p_shader);
 
-    if (this->render_hmap)
-      this->hmap.draw();
+    auto *hmap_drawable = this->sp_mesh_manager->get_drawable(QTR_MESH_HMAP);
+    if (hmap_drawable && hmap_drawable->render_params.visible &&
+        hmap_drawable->render_params.depth_pass)
+      hmap_drawable->draw(p_shader);
 
-    if (this->render_water)
-      this->water_mesh.draw();
+    auto *water_drawable = this->sp_mesh_manager->get_drawable(QTR_MESH_WATER);
+    if (water_drawable && water_drawable->render_params.visible &&
+        water_drawable->render_params.depth_pass)
+      water_drawable->draw(p_shader);
 
-    if (this->render_leaves)
-      this->leaves_instanced_mesh.draw(p_shader);
+    auto *leaves_drawable = this->sp_mesh_manager->get_drawable(QTR_MESH_LEAVES);
+    if (leaves_drawable && leaves_drawable->render_params.visible &&
+        leaves_drawable->render_params.depth_pass)
+      leaves_drawable->draw(p_shader);
 
-    if (this->render_rocks)
-      this->rocks_instanced_mesh.draw(p_shader);
+    auto *rocks_drawable = this->sp_mesh_manager->get_drawable(QTR_MESH_ROCKS);
+    if (rocks_drawable && rocks_drawable->render_params.visible &&
+        rocks_drawable->render_params.depth_pass)
+      rocks_drawable->draw(p_shader);
 
-    if (this->render_trees)
-      this->trees_instanced_mesh.draw(p_shader);
+    auto *trees_drawable = this->sp_mesh_manager->get_drawable(QTR_MESH_TREES);
+    if (trees_drawable && trees_drawable->render_params.visible &&
+        trees_drawable->render_params.depth_pass)
+      trees_drawable->draw(p_shader);
 
     p_shader->release();
 

@@ -54,7 +54,7 @@ int main(int argc, char *argv[])
     h = {0.8f, 0.2f, 1.f, 0.5f, 0.7f};
 
     renderer->set_points(x, y, h);
-    renderer->reset_points();
+    renderer->reset_mesh(QTR_MESH_POINTS);
   }
 
   {
@@ -64,7 +64,7 @@ int main(int argc, char *argv[])
     h = {0.8f, 0.2f, 1.f, 0.5f, 0.7f};
 
     renderer->set_path(x, y, h);
-    renderer->reset_path();
+    renderer->reset_mesh(QTR_MESH_PATH);
   }
 
   {

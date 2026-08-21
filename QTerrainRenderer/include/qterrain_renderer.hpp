@@ -13,6 +13,7 @@
 #include "qtr/instanced_mesh.hpp"
 #include "qtr/logger.hpp"
 #include "qtr/mesh.hpp"
+#include "qtr/mesh_manager.hpp"
 #include "qtr/primitives.hpp"
 #include "qtr/render_widget.hpp"
 #include "qtr/shader.hpp"

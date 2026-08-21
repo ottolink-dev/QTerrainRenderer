@@ -60,7 +60,8 @@ void RenderWidget::render_scene_render_2d()
     p_shader->setUniformValue("cmap", this->viewer2d_settings.cmap);
 
     // heightmap
-    if (this->render_hmap)
+    auto *hmap_drawable = this->sp_mesh_manager->get_drawable(QTR_MESH_HMAP);
+    if (hmap_drawable && hmap_drawable->render_params.visible)
     {
       p_shader->setUniformValue("base_color", QVector3D(0.8f, 0.8f, 0.8f));
       p_shader->setUniformValue(
@@ -74,7 +75,7 @@ void RenderWidget::render_scene_render_2d()
       p_shader->setUniformValue("normal_map_scaling", 0.f);
       p_shader->setUniformValue("use_texture_albedo", false);
 
-      this->hmap.draw();
+      hmap_drawable->draw(p_shader);
     }
 
     this->unbind_textures();

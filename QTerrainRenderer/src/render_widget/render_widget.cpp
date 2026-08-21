@@ -62,6 +62,26 @@ RenderWidget::RenderWidget(const std::string &_title, QWidget *parent)
   // managers
   this->sp_shader_manager = std::make_unique<ShaderManager>();
   this->sp_texture_manager = std::make_unique<TextureManager>();
+  this->sp_mesh_manager = std::make_unique<MeshManager>();
+
+  // add meshes
+  this->sp_mesh_manager->add_mesh(QTR_MESH_PLANE);
+  this->sp_mesh_manager->add_mesh(QTR_MESH_HMAP);
+  this->sp_mesh_manager->add_mesh(QTR_MESH_WATER);
+  this->sp_mesh_manager->add_mesh(QTR_MESH_PATH);
+  this->sp_mesh_manager->add_instanced_mesh(QTR_MESH_POINTS);
+  this->sp_mesh_manager->add_instanced_mesh(QTR_MESH_ROCKS);
+  this->sp_mesh_manager->add_instanced_mesh(QTR_MESH_TREES);
+  this->sp_mesh_manager->add_instanced_mesh(QTR_MESH_LEAVES);
+
+  // configure default render parameters
+  this->sp_mesh_manager->get_render_params(QTR_MESH_PLANE)->base_color = glm::vec3(0.2f,
+                                                                                   0.2f,
+                                                                                   0.2f);
+  this->sp_mesh_manager->get_render_params(QTR_MESH_PATH)->base_color = glm::vec3(1.0f,
+                                                                                  0.0f,
+                                                                                  1.0f);
+  this->sp_mesh_manager->get_render_params(QTR_MESH_WATER)->cast_shadow = false;
 
   // add placeholder for each texture
   const std::vector<std::string> tex_names = {QTR_TEX_ALBEDO,
@@ -103,13 +123,7 @@ void RenderWidget::clear()
 
   this->makeCurrent();
 
-  this->reset_heightmap_geometry();
-  this->reset_water_geometry();
-  this->reset_points();
-  this->reset_path();
-  this->reset_rocks();
-  this->reset_trees();
-
+  this->sp_mesh_manager->destroy_all();
   this->reset_textures();
 
   this->need_update = true;
@@ -128,23 +142,17 @@ bool RenderWidget::get_bypass_texture_albedo() const
   return this->bypass_texture_albedo;
 }
 
-bool RenderWidget::get_render_plane() const { return this->render_plane; }
+bool RenderWidget::is_mesh_visible(const std::string &name) const
+{
+  return this->sp_mesh_manager->is_visible(name);
+}
 
-bool RenderWidget::get_render_points() const { return this->render_points; }
+MeshManager &RenderWidget::get_mesh_manager() { return *this->sp_mesh_manager; }
 
-bool RenderWidget::get_render_path() const { return this->render_path; }
-
-bool RenderWidget::get_render_hmap() const { return this->render_hmap; }
-
-bool RenderWidget::get_render_rocks() const { return this->render_rocks; }
-
-bool RenderWidget::get_render_trees() const { return this->render_trees; }
-
-bool RenderWidget::get_render_water() const { return this->render_water; }
-
-bool RenderWidget::get_render_leaves() const { return this->render_leaves; }
-
-Mesh &RenderWidget::get_water_mesh() { return this->water_mesh; }
+Mesh &RenderWidget::get_water_mesh()
+{
+  return *this->sp_mesh_manager->get_mesh(QTR_MESH_WATER);
+}
 
 void RenderWidget::initializeGL()
 {
@@ -267,7 +275,7 @@ void RenderWidget::initializeGL()
   // --- Meshes
 
   // keep the plane square, use hmap_wx for both directions
-  generate_plane(this->plane,
+  generate_plane(*this->sp_mesh_manager->get_mesh(QTR_MESH_PLANE),
                  0.f,
                  -1e-3f,
                  0.f,
@@ -356,36 +364,22 @@ void RenderWidget::reset_camera_position()
   this->need_update = true;
 }
 
-void RenderWidget::reset_heightmap_geometry()
+void RenderWidget::reset_mesh(const std::string &name)
 {
   this->makeCurrent();
-  this->hmap.destroy();
-  if (this->sp_texture_manager->get(QTR_TEX_HMAP))
+  this->sp_mesh_manager->destroy(name);
+  if (name == QTR_MESH_HMAP && this->sp_texture_manager->get(QTR_TEX_HMAP))
     this->sp_texture_manager->get(QTR_TEX_HMAP)->destroy();
   this->need_update = true;
   this->doneCurrent();
 }
 
-void RenderWidget::reset_leaves()
+void RenderWidget::reset_meshes()
 {
   this->makeCurrent();
-  this->leaves_instanced_mesh.destroy();
-  this->need_update = true;
-  this->doneCurrent();
-}
-
-void RenderWidget::reset_path()
-{
-  this->makeCurrent();
-  this->path_mesh.destroy();
-  this->need_update = true;
-  this->doneCurrent();
-}
-
-void RenderWidget::reset_points()
-{
-  this->makeCurrent();
-  this->points_instanced_mesh.destroy();
+  this->sp_mesh_manager->destroy_all();
+  if (this->sp_texture_manager->get(QTR_TEX_HMAP))
+    this->sp_texture_manager->get(QTR_TEX_HMAP)->destroy();
   this->need_update = true;
   this->doneCurrent();
 }
@@ -415,30 +409,6 @@ void RenderWidget::reset_textures()
     if (this->sp_texture_manager->get(s))
       this->sp_texture_manager->get(s)->destroy();
 
-  this->need_update = true;
-  this->doneCurrent();
-}
-
-void RenderWidget::reset_water_geometry()
-{
-  this->makeCurrent();
-  this->water_mesh.destroy();
-  this->need_update = true;
-  this->doneCurrent();
-}
-
-void RenderWidget::reset_rocks()
-{
-  this->makeCurrent();
-  this->rocks_instanced_mesh.destroy();
-  this->need_update = true;
-  this->doneCurrent();
-}
-
-void RenderWidget::reset_trees()
-{
-  this->makeCurrent();
-  this->trees_instanced_mesh.destroy();
   this->need_update = true;
   this->doneCurrent();
 }
@@ -558,7 +528,7 @@ void RenderWidget::set_heightmap_geometry(const std::vector<float> &data,
   const float aspect_ratio = static_cast<float>(width) / static_cast<float>(height);
   this->set_aspect_ratio(aspect_ratio);
 
-  generate_heightmap(this->hmap,
+  generate_heightmap(*this->sp_mesh_manager->get_mesh(QTR_MESH_HMAP),
                      data,
                      width,
                      height,
@@ -575,7 +545,7 @@ void RenderWidget::set_heightmap_geometry(const std::vector<float> &data,
 
   // regenerate plane (keep the plane square, use hmap_wx for both
   // directions)
-  generate_plane(this->plane,
+  generate_plane(*this->sp_mesh_manager->get_mesh(QTR_MESH_PLANE),
                  0.f,
                  this->hmap_hmin * this->hmap_h - 1e-3f,
                  0.f,
@@ -627,7 +597,7 @@ void RenderWidget::set_leaves(const std::vector<float> &x,
   float r = 1.f;
   generate_grass_leaf_2sided(*mesh, glm::vec3(0.f, 0.f, 0.f), r, 0.1f * r);
 
-  this->leaves_instanced_mesh.create(mesh, instances);
+  this->sp_mesh_manager->get_instanced_mesh(QTR_MESH_LEAVES)->create(mesh, instances);
   this->need_update = true;
   this->doneCurrent();
 }
@@ -656,7 +626,7 @@ void RenderWidget::set_path(const std::vector<float> &x,
 
   // TODO scale with point value
 
-  generate_path(path_mesh, points, 0.01f);
+  generate_path(*this->sp_mesh_manager->get_mesh(QTR_MESH_PATH), points, 0.01f);
   this->need_update = true;
   this->doneCurrent();
 }
@@ -691,7 +661,8 @@ void RenderWidget::set_points(const std::vector<float> &x,
   auto sphere_mesh = std::make_shared<Mesh>();
   generate_sphere(*sphere_mesh, 1.f);
 
-  this->points_instanced_mesh.create(sphere_mesh, instances);
+  this->sp_mesh_manager->get_instanced_mesh(QTR_MESH_POINTS)
+      ->create(sphere_mesh, instances);
   this->need_update = true;
   this->doneCurrent();
 }
@@ -701,51 +672,9 @@ void RenderWidget::set_render_type(const RenderType &new_render_type)
   this->render_type = new_render_type;
 }
 
-void RenderWidget::set_render_plane(bool new_state)
+void RenderWidget::set_mesh_visible(const std::string &name, bool visible)
 {
-  this->render_plane = new_state;
-  this->need_update = true;
-}
-
-void RenderWidget::set_render_points(bool new_state)
-{
-  this->render_points = new_state;
-  this->need_update = true;
-}
-
-void RenderWidget::set_render_path(bool new_state)
-{
-  this->render_path = new_state;
-  this->need_update = true;
-}
-
-void RenderWidget::set_render_hmap(bool new_state)
-{
-  this->render_hmap = new_state;
-  this->need_update = true;
-}
-
-void RenderWidget::set_render_rocks(bool new_state)
-{
-  this->render_rocks = new_state;
-  this->need_update = true;
-}
-
-void RenderWidget::set_render_trees(bool new_state)
-{
-  this->render_trees = new_state;
-  this->need_update = true;
-}
-
-void RenderWidget::set_render_water(bool new_state)
-{
-  this->render_water = new_state;
-  this->need_update = true;
-}
-
-void RenderWidget::set_render_leaves(bool new_state)
-{
-  this->render_leaves = new_state;
+  this->sp_mesh_manager->set_visible(name, visible);
   this->need_update = true;
 }
 
@@ -780,7 +709,7 @@ void RenderWidget::set_rocks(const std::vector<float> &x,
   auto mesh = std::make_shared<Mesh>();
   generate_rock(*mesh, 1.f, 0.3f, 0);
 
-  this->rocks_instanced_mesh.create(mesh, instances);
+  this->sp_mesh_manager->get_instanced_mesh(QTR_MESH_ROCKS)->create(mesh, instances);
   this->need_update = true;
   this->doneCurrent();
 }
@@ -830,7 +759,7 @@ void RenderWidget::set_trees(const std::vector<float> &x,
   float r = 1.f;
   generate_tree(*mesh, r, 0.1f * r, 5.f * r, r, 5);
 
-  this->trees_instanced_mesh.create(mesh, instances);
+  this->sp_mesh_manager->get_instanced_mesh(QTR_MESH_TREES)->create(mesh, instances);
   this->need_update = true;
   this->doneCurrent();
 }
@@ -850,7 +779,7 @@ void RenderWidget::set_water_geometry(const std::vector<float> &data,
   const float aspect_ratio = static_cast<float>(width) / static_cast<float>(height);
   this->set_aspect_ratio(aspect_ratio);
 
-  generate_heightmap(this->water_mesh,
+  generate_heightmap(*this->sp_mesh_manager->get_mesh(QTR_MESH_WATER),
                      data,
                      width,
                      height,
