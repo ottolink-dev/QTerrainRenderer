@@ -28,11 +28,6 @@ void RenderWidget::render_shadow_map(const glm::mat4 &model,
   {
     Texture *p_tex = this->sp_texture_manager->get(QTR_TEX_SHADOW_MAP);
 
-    // backup FBO state to avoid messing up with others FBO (ImGUI
-    // for instance...)
-    GLint previous_fbo;
-    glGetIntegerv(GL_FRAMEBUFFER_BINDING, &previous_fbo);
-
     glViewport(0, 0, p_tex->get_width(), p_tex->get_height());
     glBindFramebuffer(GL_FRAMEBUFFER, this->fbo);
 
@@ -64,10 +59,7 @@ void RenderWidget::render_shadow_map(const glm::mat4 &model,
     p_shader->release();
 
     glCullFace(GL_BACK);
-    glBindFramebuffer(GL_FRAMEBUFFER, 0);
-
-    // set previous FBO back
-    glBindFramebuffer(GL_FRAMEBUFFER, previous_fbo);
+    glBindFramebuffer(GL_FRAMEBUFFER, this->defaultFramebufferObject());
   }
 }
 
