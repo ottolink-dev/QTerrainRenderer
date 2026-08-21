@@ -59,21 +59,21 @@ void RenderWidget::json_from(nlohmann::json const &json)
 
   // Scene visibility
   if (json.contains("render_plane"))
-    this->set_mesh_visible(QTR_MESH_PLANE, json["render_plane"]);
+    this->set_mesh_visible(keys::mesh::plane, json["render_plane"]);
   if (json.contains("render_points"))
-    this->set_mesh_visible(QTR_MESH_POINTS, json["render_points"]);
+    this->set_mesh_visible(keys::mesh::points, json["render_points"]);
   if (json.contains("render_path"))
-    this->set_mesh_visible(QTR_MESH_PATH, json["render_path"]);
+    this->set_mesh_visible(keys::mesh::path, json["render_path"]);
   if (json.contains("render_hmap"))
-    this->set_mesh_visible(QTR_MESH_HMAP, json["render_hmap"]);
+    this->set_mesh_visible(keys::mesh::hmap, json["render_hmap"]);
   if (json.contains("render_rocks"))
-    this->set_mesh_visible(QTR_MESH_ROCKS, json["render_rocks"]);
+    this->set_mesh_visible(keys::mesh::rocks, json["render_rocks"]);
   if (json.contains("render_trees"))
-    this->set_mesh_visible(QTR_MESH_TREES, json["render_trees"]);
+    this->set_mesh_visible(keys::mesh::trees, json["render_trees"]);
   if (json.contains("render_water"))
-    this->set_mesh_visible(QTR_MESH_WATER, json["render_water"]);
+    this->set_mesh_visible(keys::mesh::water, json["render_water"]);
   if (json.contains("render_leaves"))
-    this->set_mesh_visible(QTR_MESH_LEAVES, json["render_leaves"]);
+    this->set_mesh_visible(keys::mesh::leaves, json["render_leaves"]);
 
   // Normals
   json_safe_get(json, "normal_visualization", normal_visualization);
@@ -171,14 +171,14 @@ nlohmann::json RenderWidget::json_to() const
       {"hmap_h", hmap_h},
 
       // Scene visibility
-      {"render_plane", this->is_mesh_visible(QTR_MESH_PLANE)},
-      {"render_points", this->is_mesh_visible(QTR_MESH_POINTS)},
-      {"render_path", this->is_mesh_visible(QTR_MESH_PATH)},
-      {"render_hmap", this->is_mesh_visible(QTR_MESH_HMAP)},
-      {"render_rocks", this->is_mesh_visible(QTR_MESH_ROCKS)},
-      {"render_trees", this->is_mesh_visible(QTR_MESH_TREES)},
-      {"render_water", this->is_mesh_visible(QTR_MESH_WATER)},
-      {"render_leaves", this->is_mesh_visible(QTR_MESH_LEAVES)},
+      {"render_plane", this->is_mesh_visible(keys::mesh::plane)},
+      {"render_points", this->is_mesh_visible(keys::mesh::points)},
+      {"render_path", this->is_mesh_visible(keys::mesh::path)},
+      {"render_hmap", this->is_mesh_visible(keys::mesh::hmap)},
+      {"render_rocks", this->is_mesh_visible(keys::mesh::rocks)},
+      {"render_trees", this->is_mesh_visible(keys::mesh::trees)},
+      {"render_water", this->is_mesh_visible(keys::mesh::water)},
+      {"render_leaves", this->is_mesh_visible(keys::mesh::leaves)},
 
       // Normals
       {"normal_visualization", normal_visualization},

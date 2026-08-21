@@ -65,30 +65,29 @@ RenderWidget::RenderWidget(const std::string &_title, QWidget *parent)
   this->sp_mesh_manager = std::make_unique<MeshManager>();
 
   // add meshes
-  this->sp_mesh_manager->add_mesh(QTR_MESH_PLANE);
-  this->sp_mesh_manager->add_mesh(QTR_MESH_HMAP);
-  this->sp_mesh_manager->add_mesh(QTR_MESH_WATER);
-  this->sp_mesh_manager->add_mesh(QTR_MESH_PATH);
-  this->sp_mesh_manager->add_instanced_mesh(QTR_MESH_POINTS);
-  this->sp_mesh_manager->add_instanced_mesh(QTR_MESH_ROCKS);
-  this->sp_mesh_manager->add_instanced_mesh(QTR_MESH_TREES);
-  this->sp_mesh_manager->add_instanced_mesh(QTR_MESH_LEAVES);
+  this->sp_mesh_manager->add_mesh(keys::mesh::plane);
+  this->sp_mesh_manager->add_mesh(keys::mesh::hmap);
+  this->sp_mesh_manager->add_mesh(keys::mesh::water);
+  this->sp_mesh_manager->add_mesh(keys::mesh::path);
+  this->sp_mesh_manager->add_instanced_mesh(keys::mesh::points);
+  this->sp_mesh_manager->add_instanced_mesh(keys::mesh::rocks);
+  this->sp_mesh_manager->add_instanced_mesh(keys::mesh::trees);
+  this->sp_mesh_manager->add_instanced_mesh(keys::mesh::leaves);
 
   // configure default render parameters
-  this->sp_mesh_manager->get_render_params(QTR_MESH_PLANE)->base_color = glm::vec3(0.2f,
-                                                                                   0.2f,
-                                                                                   0.2f);
-  this->sp_mesh_manager->get_render_params(QTR_MESH_PATH)->base_color = glm::vec3(1.0f,
-                                                                                  0.0f,
-                                                                                  1.0f);
-  this->sp_mesh_manager->get_render_params(QTR_MESH_WATER)->cast_shadow = false;
+  this->sp_mesh_manager->get_render_params(keys::mesh::plane)->base_color =
+      glm::vec3(0.2f, 0.2f, 0.2f);
+  this->sp_mesh_manager->get_render_params(keys::mesh::path)->base_color =
+      glm::vec3(1.0f, 0.0f, 1.0f);
+  this->sp_mesh_manager->get_render_params(keys::mesh::water)->cast_shadow =
+      false;
 
   // add placeholder for each texture
-  const std::vector<std::string> tex_names = {QTR_TEX_ALBEDO,
-                                              QTR_TEX_HMAP,
-                                              QTR_TEX_NORMAL,
-                                              QTR_TEX_SHADOW_MAP,
-                                              QTR_TEX_DEPTH};
+  const std::vector<std::string> tex_names = {keys::tex::albedo,
+                                              keys::tex::hmap,
+                                              keys::tex::normal,
+                                              keys::tex::shadow_map,
+                                              keys::tex::depth};
   for (auto &s : tex_names)
     this->sp_texture_manager->add(s);
 }
@@ -151,7 +150,7 @@ MeshManager &RenderWidget::get_mesh_manager() { return *this->sp_mesh_manager; }
 
 Mesh &RenderWidget::get_water_mesh()
 {
-  return *this->sp_mesh_manager->get_mesh(QTR_MESH_WATER);
+  return *this->sp_mesh_manager->get_mesh(keys::mesh::water);
 }
 
 void RenderWidget::initializeGL()
@@ -275,7 +274,7 @@ void RenderWidget::initializeGL()
   // --- Meshes
 
   // keep the plane square, use hmap_wx for both directions
-  generate_plane(*this->sp_mesh_manager->get_mesh(QTR_MESH_PLANE),
+  generate_plane(*this->sp_mesh_manager->get_mesh(keys::mesh::plane),
                  0.f,
                  -1e-3f,
                  0.f,
@@ -288,7 +287,7 @@ void RenderWidget::initializeGL()
   {
     int depth_map_res = 512;
 
-    this->sp_texture_manager->add_depth_texture(QTR_TEX_DEPTH,
+    this->sp_texture_manager->add_depth_texture(keys::tex::depth,
                                                 depth_map_res,
                                                 depth_map_res,
                                                 false);
@@ -299,7 +298,7 @@ void RenderWidget::initializeGL()
     glFramebufferTexture2D(GL_FRAMEBUFFER,
                            GL_DEPTH_ATTACHMENT,
                            GL_TEXTURE_2D,
-                           this->sp_texture_manager->get(QTR_TEX_DEPTH)->get_id(),
+                           this->sp_texture_manager->get(keys::tex::depth)->get_id(),
                            0);
     glDrawBuffer(GL_NONE);
     glReadBuffer(GL_NONE);
@@ -311,7 +310,7 @@ void RenderWidget::initializeGL()
   {
     int shadow_map_res = 1024; // 2048;
 
-    this->sp_texture_manager->add_depth_texture(QTR_TEX_SHADOW_MAP,
+    this->sp_texture_manager->add_depth_texture(keys::tex::shadow_map,
                                                 shadow_map_res,
                                                 shadow_map_res,
                                                 true);
@@ -319,11 +318,12 @@ void RenderWidget::initializeGL()
     // create framebuffer for shadow depth
     glGenFramebuffers(1, &this->fbo);
     glBindFramebuffer(GL_FRAMEBUFFER, this->fbo);
-    glFramebufferTexture2D(GL_FRAMEBUFFER,
-                           GL_DEPTH_ATTACHMENT,
-                           GL_TEXTURE_2D,
-                           this->sp_texture_manager->get(QTR_TEX_SHADOW_MAP)->get_id(),
-                           0);
+    glFramebufferTexture2D(
+        GL_FRAMEBUFFER,
+        GL_DEPTH_ATTACHMENT,
+        GL_TEXTURE_2D,
+        this->sp_texture_manager->get(keys::tex::shadow_map)->get_id(),
+        0);
     glDrawBuffer(GL_NONE);
     glReadBuffer(GL_NONE);
 
@@ -368,8 +368,8 @@ void RenderWidget::reset_mesh(const std::string &name)
 {
   this->makeCurrent();
   this->sp_mesh_manager->destroy(name);
-  if (name == QTR_MESH_HMAP && this->sp_texture_manager->get(QTR_TEX_HMAP))
-    this->sp_texture_manager->get(QTR_TEX_HMAP)->destroy();
+  if (name == keys::mesh::hmap && this->sp_texture_manager->get(keys::tex::hmap))
+    this->sp_texture_manager->get(keys::tex::hmap)->destroy();
   this->need_update = true;
   this->doneCurrent();
 }
@@ -378,8 +378,8 @@ void RenderWidget::reset_meshes()
 {
   this->makeCurrent();
   this->sp_mesh_manager->destroy_all();
-  if (this->sp_texture_manager->get(QTR_TEX_HMAP))
-    this->sp_texture_manager->get(QTR_TEX_HMAP)->destroy();
+  if (this->sp_texture_manager->get(keys::tex::hmap))
+    this->sp_texture_manager->get(keys::tex::hmap)->destroy();
   this->need_update = true;
   this->doneCurrent();
 }
@@ -402,9 +402,9 @@ void RenderWidget::reset_textures()
   this->makeCurrent();
 
   // /!\ do not reset the depth maps
-  const std::vector<std::string> tex_names = {QTR_TEX_ALBEDO,
-                                              QTR_TEX_HMAP,
-                                              QTR_TEX_NORMAL};
+  const std::vector<std::string> tex_names = {keys::tex::albedo,
+                                              keys::tex::hmap,
+                                              keys::tex::normal};
   for (auto &s : tex_names)
     if (this->sp_texture_manager->get(s))
       this->sp_texture_manager->get(s)->destroy();
@@ -528,7 +528,7 @@ void RenderWidget::set_heightmap_geometry(const std::vector<float> &data,
   const float aspect_ratio = static_cast<float>(width) / static_cast<float>(height);
   this->set_aspect_ratio(aspect_ratio);
 
-  generate_heightmap(*this->sp_mesh_manager->get_mesh(QTR_MESH_HMAP),
+  generate_heightmap(*this->sp_mesh_manager->get_mesh(keys::mesh::hmap),
                      data,
                      width,
                      height,
@@ -545,7 +545,7 @@ void RenderWidget::set_heightmap_geometry(const std::vector<float> &data,
 
   // regenerate plane (keep the plane square, use hmap_wx for both
   // directions)
-  generate_plane(*this->sp_mesh_manager->get_mesh(QTR_MESH_PLANE),
+  generate_plane(*this->sp_mesh_manager->get_mesh(keys::mesh::plane),
                  0.f,
                  this->hmap_hmin * this->hmap_h - 1e-3f,
                  0.f,
@@ -559,8 +559,8 @@ void RenderWidget::set_heightmap_geometry(const std::vector<float> &data,
   // also generate the heightmap texture /!\ texture of float, scaled
   // as the input, not scaled as what the OpenGL sees (there is an
   // additional this->hmap_h scaling for OpenGL)
-  if (this->sp_texture_manager->get(QTR_TEX_HMAP))
-    this->sp_texture_manager->get(QTR_TEX_HMAP)->from_float_vector(data, width);
+  if (this->sp_texture_manager->get(keys::tex::hmap))
+    this->sp_texture_manager->get(keys::tex::hmap)->from_float_vector(data, width);
   this->need_update = true;
   this->doneCurrent();
 }
@@ -597,7 +597,8 @@ void RenderWidget::set_leaves(const std::vector<float> &x,
   float r = 1.f;
   generate_grass_leaf_2sided(*mesh, glm::vec3(0.f, 0.f, 0.f), r, 0.1f * r);
 
-  this->sp_mesh_manager->get_instanced_mesh(QTR_MESH_LEAVES)->create(mesh, instances);
+  this->sp_mesh_manager->get_instanced_mesh(keys::mesh::leaves)
+      ->create(mesh, instances);
   this->need_update = true;
   this->doneCurrent();
 }
@@ -626,7 +627,7 @@ void RenderWidget::set_path(const std::vector<float> &x,
 
   // TODO scale with point value
 
-  generate_path(*this->sp_mesh_manager->get_mesh(QTR_MESH_PATH), points, 0.01f);
+  generate_path(*this->sp_mesh_manager->get_mesh(keys::mesh::path), points, 0.01f);
   this->need_update = true;
   this->doneCurrent();
 }
@@ -661,7 +662,7 @@ void RenderWidget::set_points(const std::vector<float> &x,
   auto sphere_mesh = std::make_shared<Mesh>();
   generate_sphere(*sphere_mesh, 1.f);
 
-  this->sp_mesh_manager->get_instanced_mesh(QTR_MESH_POINTS)
+  this->sp_mesh_manager->get_instanced_mesh(keys::mesh::points)
       ->create(sphere_mesh, instances);
   this->need_update = true;
   this->doneCurrent();
@@ -709,7 +710,8 @@ void RenderWidget::set_rocks(const std::vector<float> &x,
   auto mesh = std::make_shared<Mesh>();
   generate_rock(*mesh, 1.f, 0.3f, 0);
 
-  this->sp_mesh_manager->get_instanced_mesh(QTR_MESH_ROCKS)->create(mesh, instances);
+  this->sp_mesh_manager->get_instanced_mesh(keys::mesh::rocks)
+      ->create(mesh, instances);
   this->need_update = true;
   this->doneCurrent();
 }
@@ -759,7 +761,8 @@ void RenderWidget::set_trees(const std::vector<float> &x,
   float r = 1.f;
   generate_tree(*mesh, r, 0.1f * r, 5.f * r, r, 5);
 
-  this->sp_mesh_manager->get_instanced_mesh(QTR_MESH_TREES)->create(mesh, instances);
+  this->sp_mesh_manager->get_instanced_mesh(keys::mesh::trees)
+      ->create(mesh, instances);
   this->need_update = true;
   this->doneCurrent();
 }
@@ -779,7 +782,7 @@ void RenderWidget::set_water_geometry(const std::vector<float> &data,
   const float aspect_ratio = static_cast<float>(width) / static_cast<float>(height);
   this->set_aspect_ratio(aspect_ratio);
 
-  generate_heightmap(*this->sp_mesh_manager->get_mesh(QTR_MESH_WATER),
+  generate_heightmap(*this->sp_mesh_manager->get_mesh(keys::mesh::water),
                      data,
                      width,
                      height,

@@ -12,15 +12,6 @@
 #include "qtr/instanced_mesh.hpp"
 #include "qtr/mesh.hpp"
 
-#define QTR_MESH_PLANE "plane"
-#define QTR_MESH_HMAP "hmap"
-#define QTR_MESH_WATER "water"
-#define QTR_MESH_PATH "path"
-#define QTR_MESH_POINTS "points"
-#define QTR_MESH_ROCKS "rocks"
-#define QTR_MESH_TREES "trees"
-#define QTR_MESH_LEAVES "leaves"
-
 namespace qtr
 {
 

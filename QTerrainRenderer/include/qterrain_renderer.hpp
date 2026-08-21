@@ -11,6 +11,7 @@
 #include "qtr/config.hpp"
 #include "qtr/imgui_widgets.hpp"
 #include "qtr/instanced_mesh.hpp"
+#include "qtr/keys.hpp"
 #include "qtr/logger.hpp"
 #include "qtr/mesh.hpp"
 #include "qtr/mesh_manager.hpp"

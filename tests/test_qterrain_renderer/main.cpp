@@ -29,16 +29,16 @@ int main(int argc, char *argv[])
     int                  width, height;
     std::vector<uint8_t> data = qtr::load_png_as_8bit_rgba("texture.png", width, height);
 
-    renderer->set_texture(QTR_TEX_ALBEDO, data, width);
-    // renderer->reset_texture(QTR_TEX_ALBEDO);
+    renderer->set_texture(qtr::keys::tex::albedo, data, width);
+    // renderer->reset_texture(qtr::keys::tex::albedo);
   }
 
   {
     int                  width, height;
     std::vector<uint8_t> data = qtr::load_png_as_8bit_rgba("nmap2.png", width, height);
 
-    renderer->set_texture(QTR_TEX_NORMAL, data, width);
-    renderer->reset_texture(QTR_TEX_NORMAL);
+    renderer->set_texture(qtr::keys::tex::normal, data, width);
+    renderer->reset_texture(qtr::keys::tex::normal);
   }
 
   {
@@ -54,7 +54,7 @@ int main(int argc, char *argv[])
     h = {0.8f, 0.2f, 1.f, 0.5f, 0.7f};
 
     renderer->set_points(x, y, h);
-    renderer->reset_mesh(QTR_MESH_POINTS);
+    renderer->reset_mesh(qtr::keys::mesh::points);
   }
 
   {
@@ -64,7 +64,7 @@ int main(int argc, char *argv[])
     h = {0.8f, 0.2f, 1.f, 0.5f, 0.7f};
 
     renderer->set_path(x, y, h);
-    renderer->reset_mesh(QTR_MESH_PATH);
+    renderer->reset_mesh(qtr::keys::mesh::path);
   }
 
   {

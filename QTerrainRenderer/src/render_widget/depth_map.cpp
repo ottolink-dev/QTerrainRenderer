@@ -15,7 +15,7 @@ void RenderWidget::render_depth_map(const glm::mat4 &model,
 
   if (p_shader)
   {
-    Texture *p_tex = this->sp_texture_manager->get(QTR_TEX_DEPTH);
+    Texture *p_tex = this->sp_texture_manager->get(keys::tex::depth);
 
     glViewport(0, 0, p_tex->get_width(), p_tex->get_height());
     glBindFramebuffer(GL_FRAMEBUFFER, this->fbo_depth);
@@ -28,32 +28,33 @@ void RenderWidget::render_depth_map(const glm::mat4 &model,
     p_shader->setUniformValue("view", toQMat(view));
     p_shader->setUniformValue("projection", toQMat(projection));
 
-    auto *plane_drawable = this->sp_mesh_manager->get_drawable(QTR_MESH_PLANE);
+    auto *plane_drawable = this->sp_mesh_manager->get_drawable(keys::mesh::plane);
     if (plane_drawable && plane_drawable->render_params.visible &&
         plane_drawable->render_params.depth_pass)
       plane_drawable->draw(p_shader);
 
-    auto *hmap_drawable = this->sp_mesh_manager->get_drawable(QTR_MESH_HMAP);
+    auto *hmap_drawable = this->sp_mesh_manager->get_drawable(keys::mesh::hmap);
     if (hmap_drawable && hmap_drawable->render_params.visible &&
         hmap_drawable->render_params.depth_pass)
       hmap_drawable->draw(p_shader);
 
-    auto *water_drawable = this->sp_mesh_manager->get_drawable(QTR_MESH_WATER);
+    auto *water_drawable = this->sp_mesh_manager->get_drawable(keys::mesh::water);
     if (water_drawable && water_drawable->render_params.visible &&
         water_drawable->render_params.depth_pass)
       water_drawable->draw(p_shader);
 
-    auto *leaves_drawable = this->sp_mesh_manager->get_drawable(QTR_MESH_LEAVES);
+    auto *leaves_drawable =
+        this->sp_mesh_manager->get_drawable(keys::mesh::leaves);
     if (leaves_drawable && leaves_drawable->render_params.visible &&
         leaves_drawable->render_params.depth_pass)
       leaves_drawable->draw(p_shader);
 
-    auto *rocks_drawable = this->sp_mesh_manager->get_drawable(QTR_MESH_ROCKS);
+    auto *rocks_drawable = this->sp_mesh_manager->get_drawable(keys::mesh::rocks);
     if (rocks_drawable && rocks_drawable->render_params.visible &&
         rocks_drawable->render_params.depth_pass)
       rocks_drawable->draw(p_shader);
 
-    auto *trees_drawable = this->sp_mesh_manager->get_drawable(QTR_MESH_TREES);
+    auto *trees_drawable = this->sp_mesh_manager->get_drawable(keys::mesh::trees);
     if (trees_drawable && trees_drawable->render_params.visible &&
         trees_drawable->render_params.depth_pass)
       trees_drawable->draw(p_shader);

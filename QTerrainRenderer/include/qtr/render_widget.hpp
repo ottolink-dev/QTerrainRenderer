@@ -16,18 +16,13 @@
 
 #include "qtr/camera.hpp"
 #include "qtr/instanced_mesh.hpp"
+#include "qtr/keys.hpp"
 #include "qtr/light.hpp"
 #include "qtr/mesh.hpp"
 #include "qtr/mesh_manager.hpp"
 #include "qtr/shader_manager.hpp"
 #include "qtr/texture.hpp"
 #include "qtr/texture_manager.hpp"
-
-#define QTR_TEX_ALBEDO "albedo"
-#define QTR_TEX_HMAP "hmap"
-#define QTR_TEX_NORMAL "normal"
-#define QTR_TEX_SHADOW_MAP "shadow_map"
-#define QTR_TEX_DEPTH "depth"
 
 namespace qtr
 {

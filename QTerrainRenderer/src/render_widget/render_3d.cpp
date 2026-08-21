@@ -70,7 +70,7 @@ void RenderWidget::render_scene_render_3d()
                               light_space_matrix);
 
     // base plane
-    auto *plane_drawable = this->sp_mesh_manager->get_drawable(QTR_MESH_PLANE);
+    auto *plane_drawable = this->sp_mesh_manager->get_drawable(keys::mesh::plane);
     if (plane_drawable && plane_drawable->render_params.visible)
     {
       p_shader->setUniformValue("base_color",
@@ -80,7 +80,8 @@ void RenderWidget::render_scene_render_3d()
     }
 
     // points
-    auto *points_drawable = this->sp_mesh_manager->get_drawable(QTR_MESH_POINTS);
+    auto *points_drawable =
+        this->sp_mesh_manager->get_drawable(keys::mesh::points);
     if (points_drawable && points_drawable->render_params.visible)
     {
       p_shader->setUniformValue("add_ambiant_occlusion", false);
@@ -88,7 +89,7 @@ void RenderWidget::render_scene_render_3d()
     }
 
     // path
-    auto *path_drawable = this->sp_mesh_manager->get_drawable(QTR_MESH_PATH);
+    auto *path_drawable = this->sp_mesh_manager->get_drawable(keys::mesh::path);
     if (path_drawable && path_drawable->render_params.visible)
     {
       p_shader->setUniformValue("base_color",
@@ -98,7 +99,7 @@ void RenderWidget::render_scene_render_3d()
     }
 
     // heightmap
-    auto *hmap_drawable = this->sp_mesh_manager->get_drawable(QTR_MESH_HMAP);
+    auto *hmap_drawable = this->sp_mesh_manager->get_drawable(keys::mesh::hmap);
     if (hmap_drawable && hmap_drawable->render_params.visible)
     {
       p_shader->setUniformValue("base_color",
@@ -106,9 +107,9 @@ void RenderWidget::render_scene_render_3d()
       p_shader->setUniformValue(
           "use_texture_albedo",
           true && !this->bypass_texture_albedo &&
-              this->sp_texture_manager->get(QTR_TEX_ALBEDO)->is_active());
+              this->sp_texture_manager->get(keys::tex::albedo)->is_active());
 
-      if (this->sp_texture_manager->get(QTR_TEX_NORMAL)->is_active())
+      if (this->sp_texture_manager->get(keys::tex::normal)->is_active())
         p_shader->setUniformValue("normal_map_scaling", this->normal_map_scaling);
 
       p_shader->setUniformValue("add_ambiant_occlusion", this->add_ambiant_occlusion);
@@ -118,19 +119,20 @@ void RenderWidget::render_scene_render_3d()
       p_shader->setUniformValue("use_texture_albedo", false);
     }
 
-    auto *rocks_drawable = this->sp_mesh_manager->get_drawable(QTR_MESH_ROCKS);
+    auto *rocks_drawable = this->sp_mesh_manager->get_drawable(keys::mesh::rocks);
     if (rocks_drawable && rocks_drawable->render_params.visible)
       rocks_drawable->draw(p_shader);
 
-    auto *leaves_drawable = this->sp_mesh_manager->get_drawable(QTR_MESH_LEAVES);
+    auto *leaves_drawable =
+        this->sp_mesh_manager->get_drawable(keys::mesh::leaves);
     if (leaves_drawable && leaves_drawable->render_params.visible)
       leaves_drawable->draw(p_shader);
 
-    auto *trees_drawable = this->sp_mesh_manager->get_drawable(QTR_MESH_TREES);
+    auto *trees_drawable = this->sp_mesh_manager->get_drawable(keys::mesh::trees);
     if (trees_drawable && trees_drawable->render_params.visible)
       trees_drawable->draw(p_shader);
 
-    auto *water_drawable = this->sp_mesh_manager->get_drawable(QTR_MESH_WATER);
+    auto *water_drawable = this->sp_mesh_manager->get_drawable(keys::mesh::water);
     if (water_drawable && water_drawable->render_params.visible)
     {
       p_shader->setUniformValue("spec_strength", this->water_spec_strength);
@@ -221,36 +223,36 @@ void RenderWidget::render_ui_render_3d()
     ImGui::TableNextColumn();
     changed |= ImGui::Checkbox(
         "Plane",
-        &this->sp_mesh_manager->get_render_params(QTR_MESH_PLANE)->visible);
+        &this->sp_mesh_manager->get_render_params(keys::mesh::plane)->visible);
     //
     ImGui::TableNextRow();
     ImGui::TableNextColumn();
     changed |= ImGui::Checkbox(
         "Terrain",
-        &this->sp_mesh_manager->get_render_params(QTR_MESH_HMAP)->visible);
+        &this->sp_mesh_manager->get_render_params(keys::mesh::hmap)->visible);
     ImGui::TableNextColumn();
     changed |= ImGui::Checkbox(
         "Water##render",
-        &this->sp_mesh_manager->get_render_params(QTR_MESH_WATER)->visible);
+        &this->sp_mesh_manager->get_render_params(keys::mesh::water)->visible);
     //
     ImGui::TableNextRow();
     ImGui::TableNextColumn();
     changed |= ImGui::Checkbox(
         "Points",
-        &this->sp_mesh_manager->get_render_params(QTR_MESH_POINTS)->visible);
+        &this->sp_mesh_manager->get_render_params(keys::mesh::points)->visible);
     ImGui::SameLine();
     ImGui::TableNextColumn();
     changed |= ImGui::Checkbox(
         "Path",
-        &this->sp_mesh_manager->get_render_params(QTR_MESH_PATH)->visible);
+        &this->sp_mesh_manager->get_render_params(keys::mesh::path)->visible);
     //
     // ImGui::TableNextRow();
     // ImGui::TableNextColumn();
     // changed |= ImGui::Checkbox("Rocks",
-    // &this->sp_mesh_manager->get_render_params(QTR_MESH_ROCKS)->visible);
+    // &this->sp_mesh_manager->get_render_params(RenderWidget::MESH_ROCKS)->visible);
     // ImGui::TableNextColumn();
     // changed |= ImGui::Checkbox("Trees",
-    // &this->sp_mesh_manager->get_render_params(QTR_MESH_TREES)->visible);
+    // &this->sp_mesh_manager->get_render_params(RenderWidget::MESH_TREES)->visible);
 
     ImGui::EndTable();
   }
