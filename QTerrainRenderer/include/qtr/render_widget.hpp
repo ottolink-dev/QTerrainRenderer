@@ -33,6 +33,12 @@ enum RenderType : int
   RENDER_3D
 };
 
+enum SkyboxMode : int
+{
+  SKYBOX_UNIFORM_COLOR = 0,
+  SKYBOX_IMAGE = 1
+};
+
 struct Viewer2DSettings
 {
   float     zoom = 0.9f;
@@ -112,6 +118,19 @@ public:
   void reset_texture(const std::string &name);
   void reset_textures();
 
+  // --- Skybox & Environment
+  bool       get_show_skybox() const { return show_skybox; }
+  void       set_show_skybox(bool show);
+  SkyboxMode get_skybox_mode() const { return skybox_mode; }
+  void       set_skybox_mode(SkyboxMode mode);
+  glm::vec3  get_skybox_color() const { return skybox_color; }
+  void       set_skybox_color(const glm::vec3 &color);
+  float      get_skybox_rotation() const { return skybox_rotation; }
+  void       set_skybox_rotation(float rotation_rad);
+  bool       get_fog_match_skybox() const { return fog_match_skybox; }
+  void       set_fog_match_skybox(bool match);
+  void       set_skybox_image(const std::vector<uint8_t> &data, int width);
+
 protected:
   // --- Geometry
   void set_aspect_ratio(float new_aspect_ratio);
@@ -127,6 +146,7 @@ protected:
   void render_scene_render_3d();
   void render_ui_render_2d();
   void render_ui_render_3d();
+  void render_skybox(const glm::mat4 &view, const glm::mat4 &projection);
   void render_depth_map(const glm::mat4 &model,
                         const glm::mat4 &view,
                         const glm::mat4 &projection);
@@ -252,6 +272,13 @@ private:
   glm::vec3 mie_color = glm::vec3(1.0f, 0.8f, 0.7f);      // whitish/yellowish
   float     fog_strength = 0.5f;
   float     fog_scattering_ratio = 0.7f;
+
+  // --- Skybox
+  bool       show_skybox = true;
+  SkyboxMode skybox_mode = SkyboxMode::SKYBOX_UNIFORM_COLOR;
+  glm::vec3  skybox_color = glm::vec3(0.53f, 0.81f, 0.92f); // sky blue
+  float      skybox_rotation = 0.f;
+  bool       fog_match_skybox = true;
 
   // --- 2D Viewer
   Viewer2DSettings viewer2d_settings;

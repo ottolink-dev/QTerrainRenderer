@@ -116,11 +116,18 @@ void RenderWidget::json_from(nlohmann::json const &json)
   json_safe_get(json, "animate_waves", animate_waves);
   json_safe_get(json, "waves_speed", waves_speed);
 
+  // Skybox
+  json_safe_get(json, "show_skybox", show_skybox);
+  json_safe_get(json, "skybox_mode", skybox_mode);
+  json_safe_get(json, "skybox_color", skybox_color);
+  json_safe_get(json, "skybox_rotation", skybox_rotation);
+
   // Environment
   json_safe_get(json, "add_fog", add_fog);
   json_safe_get(json, "fog_color", fog_color);
   json_safe_get(json, "fog_density", fog_density);
   json_safe_get(json, "fog_height", fog_height);
+  json_safe_get(json, "fog_match_skybox", fog_match_skybox);
   json_safe_get(json, "add_atmospheric_scattering", add_atmospheric_scattering);
   json_safe_get(json, "scattering_density", scattering_density);
   json_safe_get(json, "rayleigh_color", rayleigh_color);
@@ -221,11 +228,18 @@ nlohmann::json RenderWidget::json_to() const
       {"animate_waves", animate_waves},
       {"waves_speed", waves_speed},
 
+      // Skybox
+      {"show_skybox", show_skybox},
+      {"skybox_mode", skybox_mode},
+      {"skybox_color", skybox_color},
+      {"skybox_rotation", skybox_rotation},
+
       // Environment
       {"add_fog", add_fog},
       {"fog_color", fog_color},
       {"fog_density", fog_density},
       {"fog_height", fog_height},
+      {"fog_match_skybox", fog_match_skybox},
       {"add_atmospheric_scattering", add_atmospheric_scattering},
       {"scattering_density", scattering_density},
       {"rayleigh_color", rayleigh_color},

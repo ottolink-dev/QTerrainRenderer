@@ -1,5 +1,4 @@
-/* Copyright (c) 2025 Otto Link. Distributed under the terms of the GNU General Public
-   License. The full license is in the file LICENSE, distributed with this software. */
+#include <filesystem>
 #include <random>
 
 #include <QApplication>
@@ -39,6 +38,41 @@ int main(int argc, char *argv[])
 
     renderer->set_texture(qtr::keys::tex::normal, data, width);
     renderer->reset_texture(qtr::keys::tex::normal);
+  }
+
+  // skybox
+  {
+    int         width, height;
+    std::string sky_filename = "DaySkyHDRI057B_1K_TONEMAPPED.jpg";
+    std::string sky_path = sky_filename;
+
+    const std::vector<std::string> search_dirs = {".",
+                                                  "data",
+                                                  "../data",
+                                                  "../../data",
+                                                  "QTerrainRenderer/data",
+                                                  "../QTerrainRenderer/data",
+                                                  "../../QTerrainRenderer/data"};
+
+    for (const auto &dir : search_dirs)
+    {
+      std::string candidate = dir + "/" + sky_filename;
+      if (std::filesystem::exists(candidate))
+      {
+        sky_path = candidate;
+        break;
+      }
+    }
+
+    try
+    {
+      std::vector<uint8_t> data = qtr::load_image_as_8bit_rgba(sky_path, width, height);
+      renderer->set_skybox_image(data, width);
+    }
+    catch (const std::exception &e)
+    {
+      qtr::Logger::log()->warn("Could not load skybox image {}: {}", sky_path, e.what());
+    }
   }
 
   {

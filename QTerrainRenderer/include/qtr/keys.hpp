@@ -12,6 +12,7 @@ inline constexpr const char *hmap = "hmap";
 inline constexpr const char *normal = "normal";
 inline constexpr const char *shadow_map = "shadow_map";
 inline constexpr const char *depth = "depth";
+inline constexpr const char *skybox = "skybox";
 } // namespace tex
 
 namespace mesh
@@ -24,6 +25,7 @@ inline constexpr const char *points = "points";
 inline constexpr const char *rocks = "rocks";
 inline constexpr const char *trees = "trees";
 inline constexpr const char *leaves = "leaves";
+inline constexpr const char *skybox = "skybox";
 } // namespace mesh
 
 } // namespace qtr::keys

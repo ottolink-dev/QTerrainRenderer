@@ -79,6 +79,13 @@ uniform bool  add_fog;
 uniform vec3  fog_color;
 uniform float fog_density;
 uniform float fog_height;
+uniform bool  fog_match_skybox;
+
+// --- Skybox context for horizon matching
+uniform int   skybox_mode;
+uniform vec3  skybox_color;
+uniform float skybox_rotation;
+uniform bool  has_skybox_texture;
 
 // --- Atmospheric scattering
 uniform bool  add_atmospheric_scattering;
@@ -98,6 +105,7 @@ uniform sampler2D texture_hmap;
 uniform sampler2D texture_normal;
 uniform sampler2D texture_shadow_map;
 uniform sampler2D texture_depth;
+uniform sampler2D texture_skybox;
 
 // === Utility Functions
 
@@ -489,6 +497,31 @@ void main()
     frag_color = vec4(result, alpha);
   }
 
+  // --- FOG & ATMOSPHERE COLOR RESOLUTION
+  vec3 effective_fog_color = fog_color;
+  if (fog_match_skybox)
+  {
+    if (skybox_mode == 1 && has_skybox_texture)
+    {
+      vec3  ray_dir = normalize(frag_pos - camera_pos);
+      float c = cos(skybox_rotation);
+      float s = sin(skybox_rotation);
+      mat3  rot_y = mat3(c, 0.0, -s, 0.0, 1.0, 0.0, s, 0.0, c);
+      vec3  h_dir = rot_y * normalize(vec3(ray_dir.x, 0.0, ray_dir.z));
+      float u = atan(h_dir.z, h_dir.x) / (2.0 * 3.14159265358979323846) + 0.5;
+      effective_fog_color = texture(texture_skybox, vec2(u, 0.5)).rgb;
+    }
+    else
+    {
+      effective_fog_color = skybox_color;
+    }
+  }
+
+  // Match gamma correction of the rest of the scene / skybox
+  effective_fog_color.x = pow(max(effective_fog_color.x, 0.0), 1.0 / gamma_correction);
+  effective_fog_color.y = pow(max(effective_fog_color.y, 0.0), 1.0 / gamma_correction);
+  effective_fog_color.z = pow(max(effective_fog_color.z, 0.0), 1.0 / gamma_correction);
+
   // --- FOG
 
   if (add_fog)
@@ -505,7 +538,7 @@ void main()
       fog_factor *= exp(-frag_pos.y / fog_height);
       fog_factor = clamp(fog_factor, 0.0, 1.0);
 
-      frag_color.xyz = mix(frag_color.xyz, fog_color, fog_factor);
+      frag_color.xyz = mix(frag_color.xyz, effective_fog_color, fog_factor);
     }
   }
 
@@ -573,7 +606,7 @@ void main()
     }
 
     // fog color with scattering
-    vec3 fogged = mix(fog_color, scattering, fog_scattering_ratio);
+    vec3 fogged = mix(effective_fog_color, scattering, fog_scattering_ratio);
 
     frag_color.xyz = mix(frag_color.xyz,
                          fogged,
