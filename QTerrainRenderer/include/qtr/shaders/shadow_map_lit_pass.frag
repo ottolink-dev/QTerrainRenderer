@@ -526,20 +526,44 @@ void main()
 
   if (add_fog)
   {
-    if (frag_pos.y > 0.0)
+    float dist = length(frag_pos - camera_pos);
+
+    // Volumetric height fog: integrate exponential falloff along ray from camera to
+    // fragment
+    float h0 = max(camera_pos.y, 0.0);
+    float h1 = max(frag_pos.y, 0.0);
+    float h_scale = max(fog_height, 0.001);
+
+    float delta_h = (h1 - h0) / h_scale;
+    float h_factor;
+    if (abs(delta_h) > 1e-3)
+      h_factor = (exp(-h0 / h_scale) - exp(-h1 / h_scale)) / delta_h;
+    else
+      h_factor = exp(-0.5 * (h0 + h1) / h_scale);
+
+    // Below ground (y <= 0), fog is at full density (h_factor = 1.0)
+    float below_ground_dist = 0.0;
+    if (frag_pos.y < 0.0 || camera_pos.y < 0.0)
     {
-      // fetch depth
-      float depth_sample = texture(texture_depth, gl_FragCoord.xy / screen_size).r;
-
-      // convert to view-space depth
-      float view_depth = linearize_depth(depth_sample);
-      float fog_factor = 1.0 - exp(-view_depth * fog_density);
-
-      fog_factor *= exp(-frag_pos.y / fog_height);
-      fog_factor = clamp(fog_factor, 0.0, 1.0);
-
-      frag_color.xyz = mix(frag_color.xyz, effective_fog_color, fog_factor);
+      float total_dy = abs(frag_pos.y - camera_pos.y);
+      if (total_dy > 1e-5)
+      {
+        float frac_below = clamp((-min(camera_pos.y, 0.0) - min(frag_pos.y, 0.0)) /
+                                     total_dy,
+                                 0.0,
+                                 1.0);
+        below_ground_dist = dist * frac_below;
+      }
+      else if (frag_pos.y < 0.0)
+      {
+        below_ground_dist = dist;
+      }
     }
+
+    float optical_depth = (dist * h_factor + below_ground_dist) * (fog_density * 0.05);
+    float fog_factor = clamp(1.0 - exp(-optical_depth), 0.0, 1.0);
+
+    frag_color.xyz = mix(frag_color.xyz, effective_fog_color, fog_factor);
   }
 
   // --- ATMOSPHERIC SCATTERING

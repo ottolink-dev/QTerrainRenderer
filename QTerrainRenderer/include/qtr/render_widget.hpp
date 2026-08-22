@@ -262,9 +262,9 @@ private:
   float waves_speed = 0.2f;
 
   // --- Environmental effects
-  bool      add_fog = false;
+  bool      add_fog = true;
   glm::vec3 fog_color = glm::vec3(1.f, 1.f, 1.f);
-  float     fog_density = 50.0f;
+  float     fog_density = 1.5f;
   float     fog_height = 0.1f;
   bool      add_atmospheric_scattering = false;
   float     scattering_density = 0.1f;

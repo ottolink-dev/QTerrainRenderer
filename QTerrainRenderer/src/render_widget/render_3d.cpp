@@ -203,6 +203,13 @@ void RenderWidget::render_skybox(const glm::mat4 &view, const glm::mat4 &project
   p_shader->setUniformValue("gamma_correction", this->gamma_correction);
   p_shader->setUniformValue("apply_tonemap", this->apply_tonemap);
 
+  // Fog
+  p_shader->setUniformValue("add_fog", this->add_fog);
+  p_shader->setUniformValue("fog_color", toQVec(this->fog_color));
+  p_shader->setUniformValue("fog_density", this->fog_density);
+  p_shader->setUniformValue("fog_height", this->fog_height);
+  p_shader->setUniformValue("fog_match_skybox", this->fog_match_skybox);
+
   bool has_tex = this->sp_texture_manager->get(keys::tex::skybox) &&
                  this->sp_texture_manager->get(keys::tex::skybox)->is_active();
   p_shader->setUniformValue("has_skybox_texture", has_tex);
