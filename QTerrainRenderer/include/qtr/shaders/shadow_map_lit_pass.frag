@@ -587,12 +587,15 @@ void main()
     vec3 sample_pos = camera_pos;
     vec3 scattering = vec3(0.0);
 
+    // Modulate scattering colors with effective horizon fog color if matching skybox
+    vec3 eff_rayleigh = fog_match_skybox ? mix(rayleigh_color, effective_fog_color, 0.7)
+                                         : rayleigh_color;
+    vec3 eff_mie = fog_match_skybox ? mix(mie_color, effective_fog_color, 0.4)
+                                    : mie_color;
+
     for (int i = 0; i < num_steps; i++)
     {
       sample_pos += step_vec;
-
-      if (sample_pos.y < 0.0)
-        continue;
 
       // simple exponential fog
       float dist = length(sample_pos - camera_pos);
@@ -623,7 +626,7 @@ void main()
       }
 
       // scale by densities (tweak or make altitude-dependent)
-      vec3 phase_color = rayleigh_color * pr + mie_color * pm;
+      vec3 phase_color = eff_rayleigh * pr + eff_mie * pm;
 
       // float phase = max(dot(normalize(light_dir), -ray_dir), 0.0); // simple isotropic
       scattering += density * light_color * phase_color * (1.0 - lit);
