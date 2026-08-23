@@ -62,13 +62,35 @@ RenderWidget::RenderWidget(const std::string &_title, QWidget *parent)
   // managers
   this->sp_shader_manager = std::make_unique<ShaderManager>();
   this->sp_texture_manager = std::make_unique<TextureManager>();
+  this->sp_mesh_manager = std::make_unique<MeshManager>();
+
+  // add meshes
+  this->sp_mesh_manager->add_mesh(keys::mesh::plane);
+  this->sp_mesh_manager->add_mesh(keys::mesh::hmap);
+  this->sp_mesh_manager->add_mesh(keys::mesh::water);
+  this->sp_mesh_manager->add_mesh(keys::mesh::path);
+  this->sp_mesh_manager->add_instanced_mesh(keys::mesh::points);
+  this->sp_mesh_manager->add_instanced_mesh(keys::mesh::rocks);
+  this->sp_mesh_manager->add_instanced_mesh(keys::mesh::trees);
+  this->sp_mesh_manager->add_instanced_mesh(keys::mesh::leaves);
+
+  // configure default render parameters
+  this->sp_mesh_manager->get_render_params(keys::mesh::plane)->base_color = glm::vec3(
+      0.2f,
+      0.2f,
+      0.2f);
+  this->sp_mesh_manager->get_render_params(keys::mesh::path)->base_color = glm::vec3(
+      1.0f,
+      0.0f,
+      1.0f);
+  this->sp_mesh_manager->get_render_params(keys::mesh::water)->cast_shadow = false;
 
   // add placeholder for each texture
-  const std::vector<std::string> tex_names = {QTR_TEX_ALBEDO,
-                                              QTR_TEX_HMAP,
-                                              QTR_TEX_NORMAL,
-                                              QTR_TEX_SHADOW_MAP,
-                                              QTR_TEX_DEPTH};
+  const std::vector<std::string> tex_names = {keys::tex::albedo,
+                                              keys::tex::hmap,
+                                              keys::tex::normal,
+                                              keys::tex::shadow_map,
+                                              keys::tex::depth};
   for (auto &s : tex_names)
     this->sp_texture_manager->add(s);
 }
@@ -103,13 +125,7 @@ void RenderWidget::clear()
 
   this->makeCurrent();
 
-  this->reset_heightmap_geometry();
-  this->reset_water_geometry();
-  this->reset_points();
-  this->reset_path();
-  this->reset_rocks();
-  this->reset_trees();
-
+  this->sp_mesh_manager->destroy_all();
   this->reset_textures();
 
   this->need_update = true;
@@ -128,23 +144,17 @@ bool RenderWidget::get_bypass_texture_albedo() const
   return this->bypass_texture_albedo;
 }
 
-bool RenderWidget::get_render_plane() const { return this->render_plane; }
+bool RenderWidget::is_mesh_visible(const std::string &name) const
+{
+  return this->sp_mesh_manager->is_visible(name);
+}
 
-bool RenderWidget::get_render_points() const { return this->render_points; }
+MeshManager &RenderWidget::get_mesh_manager() { return *this->sp_mesh_manager; }
 
-bool RenderWidget::get_render_path() const { return this->render_path; }
-
-bool RenderWidget::get_render_hmap() const { return this->render_hmap; }
-
-bool RenderWidget::get_render_rocks() const { return this->render_rocks; }
-
-bool RenderWidget::get_render_trees() const { return this->render_trees; }
-
-bool RenderWidget::get_render_water() const { return this->render_water; }
-
-bool RenderWidget::get_render_leaves() const { return this->render_leaves; }
-
-Mesh &RenderWidget::get_water_mesh() { return this->water_mesh; }
+Mesh &RenderWidget::get_water_mesh()
+{
+  return *this->sp_mesh_manager->get_mesh(keys::mesh::water);
+}
 
 void RenderWidget::initializeGL()
 {
@@ -267,7 +277,7 @@ void RenderWidget::initializeGL()
   // --- Meshes
 
   // keep the plane square, use hmap_wx for both directions
-  generate_plane(this->plane,
+  generate_plane(*this->sp_mesh_manager->get_mesh(keys::mesh::plane),
                  0.f,
                  -1e-3f,
                  0.f,
@@ -280,7 +290,7 @@ void RenderWidget::initializeGL()
   {
     int depth_map_res = 512;
 
-    this->sp_texture_manager->add_depth_texture(QTR_TEX_DEPTH,
+    this->sp_texture_manager->add_depth_texture(keys::tex::depth,
                                                 depth_map_res,
                                                 depth_map_res,
                                                 false);
@@ -291,7 +301,7 @@ void RenderWidget::initializeGL()
     glFramebufferTexture2D(GL_FRAMEBUFFER,
                            GL_DEPTH_ATTACHMENT,
                            GL_TEXTURE_2D,
-                           this->sp_texture_manager->get(QTR_TEX_DEPTH)->get_id(),
+                           this->sp_texture_manager->get(keys::tex::depth)->get_id(),
                            0);
     glDrawBuffer(GL_NONE);
     glReadBuffer(GL_NONE);
@@ -303,7 +313,7 @@ void RenderWidget::initializeGL()
   {
     int shadow_map_res = 1024; // 2048;
 
-    this->sp_texture_manager->add_depth_texture(QTR_TEX_SHADOW_MAP,
+    this->sp_texture_manager->add_depth_texture(keys::tex::shadow_map,
                                                 shadow_map_res,
                                                 shadow_map_res,
                                                 true);
@@ -314,7 +324,7 @@ void RenderWidget::initializeGL()
     glFramebufferTexture2D(GL_FRAMEBUFFER,
                            GL_DEPTH_ATTACHMENT,
                            GL_TEXTURE_2D,
-                           this->sp_texture_manager->get(QTR_TEX_SHADOW_MAP)->get_id(),
+                           this->sp_texture_manager->get(keys::tex::shadow_map)->get_id(),
                            0);
     glDrawBuffer(GL_NONE);
     glReadBuffer(GL_NONE);
@@ -356,36 +366,22 @@ void RenderWidget::reset_camera_position()
   this->need_update = true;
 }
 
-void RenderWidget::reset_heightmap_geometry()
+void RenderWidget::reset_mesh(const std::string &name)
 {
   this->makeCurrent();
-  this->hmap.destroy();
-  if (this->sp_texture_manager->get(QTR_TEX_HMAP))
-    this->sp_texture_manager->get(QTR_TEX_HMAP)->destroy();
+  this->sp_mesh_manager->destroy(name);
+  if (name == keys::mesh::hmap && this->sp_texture_manager->get(keys::tex::hmap))
+    this->sp_texture_manager->get(keys::tex::hmap)->destroy();
   this->need_update = true;
   this->doneCurrent();
 }
 
-void RenderWidget::reset_leaves()
+void RenderWidget::reset_meshes()
 {
   this->makeCurrent();
-  this->leaves_instanced_mesh.destroy();
-  this->need_update = true;
-  this->doneCurrent();
-}
-
-void RenderWidget::reset_path()
-{
-  this->makeCurrent();
-  this->path_mesh.destroy();
-  this->need_update = true;
-  this->doneCurrent();
-}
-
-void RenderWidget::reset_points()
-{
-  this->makeCurrent();
-  this->points_instanced_mesh.destroy();
+  this->sp_mesh_manager->destroy_all();
+  if (this->sp_texture_manager->get(keys::tex::hmap))
+    this->sp_texture_manager->get(keys::tex::hmap)->destroy();
   this->need_update = true;
   this->doneCurrent();
 }
@@ -408,37 +404,13 @@ void RenderWidget::reset_textures()
   this->makeCurrent();
 
   // /!\ do not reset the depth maps
-  const std::vector<std::string> tex_names = {QTR_TEX_ALBEDO,
-                                              QTR_TEX_HMAP,
-                                              QTR_TEX_NORMAL};
+  const std::vector<std::string> tex_names = {keys::tex::albedo,
+                                              keys::tex::hmap,
+                                              keys::tex::normal};
   for (auto &s : tex_names)
     if (this->sp_texture_manager->get(s))
       this->sp_texture_manager->get(s)->destroy();
 
-  this->need_update = true;
-  this->doneCurrent();
-}
-
-void RenderWidget::reset_water_geometry()
-{
-  this->makeCurrent();
-  this->water_mesh.destroy();
-  this->need_update = true;
-  this->doneCurrent();
-}
-
-void RenderWidget::reset_rocks()
-{
-  this->makeCurrent();
-  this->rocks_instanced_mesh.destroy();
-  this->need_update = true;
-  this->doneCurrent();
-}
-
-void RenderWidget::reset_trees()
-{
-  this->makeCurrent();
-  this->trees_instanced_mesh.destroy();
   this->need_update = true;
   this->doneCurrent();
 }
@@ -564,7 +536,7 @@ void RenderWidget::set_heightmap_geometry(const std::vector<float> &data,
   const float aspect_ratio = static_cast<float>(width) / static_cast<float>(height);
   this->set_aspect_ratio(aspect_ratio);
 
-  generate_heightmap(this->hmap,
+  generate_heightmap(*this->sp_mesh_manager->get_mesh(keys::mesh::hmap),
                      data,
                      width,
                      height,
@@ -581,7 +553,7 @@ void RenderWidget::set_heightmap_geometry(const std::vector<float> &data,
 
   // regenerate plane (keep the plane square, use hmap_wx for both
   // directions)
-  generate_plane(this->plane,
+  generate_plane(*this->sp_mesh_manager->get_mesh(keys::mesh::plane),
                  0.f,
                  this->hmap_hmin * this->hmap_h - 1e-3f,
                  0.f,
@@ -595,109 +567,30 @@ void RenderWidget::set_heightmap_geometry(const std::vector<float> &data,
   // also generate the heightmap texture /!\ texture of float, scaled
   // as the input, not scaled as what the OpenGL sees (there is an
   // additional this->hmap_h scaling for OpenGL)
-  if (this->sp_texture_manager->get(QTR_TEX_HMAP))
-    this->sp_texture_manager->get(QTR_TEX_HMAP)->from_float_vector(data, width);
+  if (this->sp_texture_manager->get(keys::tex::hmap))
+    this->sp_texture_manager->get(keys::tex::hmap)->from_float_vector(data, width);
   this->need_update = true;
   this->doneCurrent();
 }
 
-void RenderWidget::set_leaves(const std::vector<float> &x,
-                              const std::vector<float> &y,
-                              const std::vector<float> &h,
-                              const std::vector<float> &radius)
+void RenderWidget::set_mesh(const std::string &name, std::shared_ptr<Mesh> sp_mesh)
 {
-  qtr::Logger::log()->trace("RenderWidget::set_leaves");
+  qtr::Logger::log()->trace("RenderWidget::set_mesh: {}", name);
 
   this->makeCurrent();
-
-  if (x.size() != y.size() || x.size() != h.size() || x.size() != radius.size())
-    throw std::invalid_argument("RenderWidget::set_leaves: vector sizes does not match");
-
-  std::vector<BaseInstance> instances;
-
-  glm::vec3 color = glm::vec3(0.f, 1.f, 0.);
-
-  for (size_t k = 0; k < x.size(); ++k)
-  {
-    float xs = 0.5f * this->hmap_wx * (2.f * x[k] - 1.f);
-    float hs = this->hmap_h0 + this->hmap_h * h[k];
-    float ys = 0.5f * this->hmap_wy * (2.f * y[k] - 1.f);
-    float rs = 2.f * radius[k];
-    float rotation = (float)std::rand() / RAND_MAX * glm::two_pi<float>();
-
-    instances.push_back({glm::vec3(xs, hs, ys), rs, rotation, color});
-  }
-
-  // unit sphere
-  auto  mesh = std::make_shared<Mesh>();
-  float r = 1.f;
-  generate_grass_leaf_2sided(*mesh, glm::vec3(0.f, 0.f, 0.f), r, 0.1f * r);
-
-  this->leaves_instanced_mesh.create(mesh, instances);
+  this->sp_mesh_manager->set_mesh(name, sp_mesh);
   this->need_update = true;
   this->doneCurrent();
 }
 
-void RenderWidget::set_path(const std::vector<float> &x,
-                            const std::vector<float> &y,
-                            const std::vector<float> &h)
+void RenderWidget::set_instanced_mesh(const std::string               &name,
+                                      std::shared_ptr<Mesh>            sp_mesh,
+                                      const std::vector<BaseInstance> &instances)
 {
-  qtr::Logger::log()->trace("RenderWidget::set_path");
+  qtr::Logger::log()->trace("RenderWidget::set_instanced_mesh: {}", name);
 
   this->makeCurrent();
-
-  if (x.size() != y.size() || x.size() != h.size())
-    throw std::invalid_argument("RenderWidget::set_path: vector sizes does not match");
-
-  std::vector<glm::vec3> points;
-  for (size_t k = 0; k < x.size(); ++k)
-  {
-    // rescale to render size
-    float xs = 0.5f * this->hmap_wx * (2.f * x[k] - 1.f);
-    float hs = this->hmap_h0 + this->hmap_h * h[k];
-    float ys = 0.5f * this->hmap_wy * (2.f * y[k] - 1.f);
-
-    points.push_back(glm::vec3(xs, hs, ys));
-  }
-
-  // TODO scale with point value
-
-  generate_path(path_mesh, points, 0.01f);
-  this->need_update = true;
-  this->doneCurrent();
-}
-
-void RenderWidget::set_points(const std::vector<float> &x,
-                              const std::vector<float> &y,
-                              const std::vector<float> &h)
-{
-  qtr::Logger::log()->trace("RenderWidget::set_points");
-
-  this->makeCurrent();
-
-  if (x.size() != y.size() || x.size() != h.size())
-    throw std::invalid_argument("RenderWidget::set_points: vector sizes does not match");
-
-  std::vector<BaseInstance> instances;
-
-  float     scale = 0.01f;
-  float     rotation = 0.f;
-  glm::vec3 color = glm::vec3(0.f, 1.f, 0.);
-
-  for (size_t k = 0; k < x.size(); ++k)
-  {
-    float xs = 0.5f * this->hmap_wx * (2.f * x[k] - 1.f);
-    float hs = this->hmap_h0 + this->hmap_h * h[k];
-    float ys = 0.5f * this->hmap_wy * (2.f * y[k] - 1.f);
-
-    instances.push_back({glm::vec3(xs, hs, ys), scale, rotation, color});
-  }
-
-  // unit sphere
-  auto sphere_mesh = std::make_shared<Mesh>();
-  generate_sphere(*sphere_mesh, 1.f);
-
-  this->points_instanced_mesh.create(sphere_mesh, instances);
+  this->sp_mesh_manager->set_instanced_mesh(name, sp_mesh, instances);
   this->need_update = true;
   this->doneCurrent();
 }
@@ -707,88 +600,10 @@ void RenderWidget::set_render_type(const RenderType &new_render_type)
   this->render_type = new_render_type;
 }
 
-void RenderWidget::set_render_plane(bool new_state)
+void RenderWidget::set_mesh_visible(const std::string &name, bool visible)
 {
-  this->render_plane = new_state;
+  this->sp_mesh_manager->set_visible(name, visible);
   this->need_update = true;
-}
-
-void RenderWidget::set_render_points(bool new_state)
-{
-  this->render_points = new_state;
-  this->need_update = true;
-}
-
-void RenderWidget::set_render_path(bool new_state)
-{
-  this->render_path = new_state;
-  this->need_update = true;
-}
-
-void RenderWidget::set_render_hmap(bool new_state)
-{
-  this->render_hmap = new_state;
-  this->need_update = true;
-}
-
-void RenderWidget::set_render_rocks(bool new_state)
-{
-  this->render_rocks = new_state;
-  this->need_update = true;
-}
-
-void RenderWidget::set_render_trees(bool new_state)
-{
-  this->render_trees = new_state;
-  this->need_update = true;
-}
-
-void RenderWidget::set_render_water(bool new_state)
-{
-  this->render_water = new_state;
-  this->need_update = true;
-}
-
-void RenderWidget::set_render_leaves(bool new_state)
-{
-  this->render_leaves = new_state;
-  this->need_update = true;
-}
-
-void RenderWidget::set_rocks(const std::vector<float> &x,
-                             const std::vector<float> &y,
-                             const std::vector<float> &h,
-                             const std::vector<float> &radius)
-{
-  qtr::Logger::log()->trace("RenderWidget::set_rocks");
-
-  this->makeCurrent();
-
-  if (x.size() != y.size() || x.size() != h.size() || x.size() != radius.size())
-    throw std::invalid_argument("RenderWidget::set_rocks: vector sizes does not match");
-
-  std::vector<BaseInstance> instances;
-
-  glm::vec3 color = glm::vec3(0.f, 1.f, 0.);
-
-  for (size_t k = 0; k < x.size(); ++k)
-  {
-    float xs = 0.5f * this->hmap_wx * (2.f * x[k] - 1.f);
-    float hs = this->hmap_h0 + this->hmap_h * h[k];
-    float ys = 0.5f * this->hmap_wy * (2.f * y[k] - 1.f);
-    float rs = 2.f * radius[k];
-    float rotation = (float)std::rand() / RAND_MAX * glm::two_pi<float>();
-
-    instances.push_back({glm::vec3(xs, hs, ys), rs, rotation, color});
-  }
-
-  // unit sphere
-  auto mesh = std::make_shared<Mesh>();
-  generate_rock(*mesh, 1.f, 0.3f, 0);
-
-  this->rocks_instanced_mesh.create(mesh, instances);
-  this->need_update = true;
-  this->doneCurrent();
 }
 
 void RenderWidget::set_texture(const std::string          &name,
@@ -802,43 +617,6 @@ void RenderWidget::set_texture(const std::string          &name,
   if (this->sp_texture_manager->get(name))
     this->sp_texture_manager->get(name)->from_image_8bit_rgba(data, width);
   this->need_update = true;
-}
-
-void RenderWidget::set_trees(const std::vector<float> &x,
-                             const std::vector<float> &y,
-                             const std::vector<float> &h,
-                             const std::vector<float> &radius)
-{
-  qtr::Logger::log()->trace("RenderWidget::set_trees");
-
-  this->makeCurrent();
-
-  if (x.size() != y.size() || x.size() != h.size() || x.size() != radius.size())
-    throw std::invalid_argument("RenderWidget::set_trees: vector sizes does not match");
-
-  std::vector<BaseInstance> instances;
-
-  glm::vec3 color = glm::vec3(0.f, 1.f, 0.);
-
-  for (size_t k = 0; k < x.size(); ++k)
-  {
-    float xs = 0.5f * this->hmap_wx * (2.f * x[k] - 1.f);
-    float hs = this->hmap_h0 + this->hmap_h * h[k];
-    float ys = 0.5f * this->hmap_wy * (2.f * y[k] - 1.f);
-    float rs = 2.f * radius[k];
-    float rotation = (float)std::rand() / RAND_MAX * glm::two_pi<float>();
-
-    instances.push_back({glm::vec3(xs, hs, ys), rs, rotation, color});
-  }
-
-  // unit sphere
-  auto  mesh = std::make_shared<Mesh>();
-  float r = 1.f;
-  generate_tree(*mesh, r, 0.1f * r, 5.f * r, r, 5);
-
-  this->trees_instanced_mesh.create(mesh, instances);
-  this->need_update = true;
-  this->doneCurrent();
 }
 
 void RenderWidget::set_water_geometry(const std::vector<float> &data,
@@ -856,7 +634,7 @@ void RenderWidget::set_water_geometry(const std::vector<float> &data,
   const float aspect_ratio = static_cast<float>(width) / static_cast<float>(height);
   this->set_aspect_ratio(aspect_ratio);
 
-  generate_heightmap(this->water_mesh,
+  generate_heightmap(*this->sp_mesh_manager->get_mesh(keys::mesh::water),
                      data,
                      width,
                      height,

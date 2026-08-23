@@ -102,10 +102,10 @@ public:
     this->instance_count = 0;
   }
 
-  bool is_active()
+  bool is_active() const
   {
     bool state = this->sp_mesh ? this->sp_mesh->is_active() : false;
-    return state && (this->instance_vbo);
+    return state && (this->instance_vbo != 0);
   }
 
 private:

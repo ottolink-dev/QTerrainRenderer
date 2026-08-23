@@ -58,14 +58,22 @@ void RenderWidget::json_from(nlohmann::json const &json)
   json_safe_get(json, "hmap_h", hmap_h);
 
   // Scene visibility
-  json_safe_get(json, "render_plane", render_plane);
-  json_safe_get(json, "render_points", render_points);
-  json_safe_get(json, "render_path", render_path);
-  json_safe_get(json, "render_hmap", render_hmap);
-  json_safe_get(json, "render_rocks", render_rocks);
-  json_safe_get(json, "render_trees", render_trees);
-  json_safe_get(json, "render_water", render_water);
-  json_safe_get(json, "render_leaves", render_leaves);
+  if (json.contains("render_plane"))
+    this->set_mesh_visible(keys::mesh::plane, json["render_plane"]);
+  if (json.contains("render_points"))
+    this->set_mesh_visible(keys::mesh::points, json["render_points"]);
+  if (json.contains("render_path"))
+    this->set_mesh_visible(keys::mesh::path, json["render_path"]);
+  if (json.contains("render_hmap"))
+    this->set_mesh_visible(keys::mesh::hmap, json["render_hmap"]);
+  if (json.contains("render_rocks"))
+    this->set_mesh_visible(keys::mesh::rocks, json["render_rocks"]);
+  if (json.contains("render_trees"))
+    this->set_mesh_visible(keys::mesh::trees, json["render_trees"]);
+  if (json.contains("render_water"))
+    this->set_mesh_visible(keys::mesh::water, json["render_water"]);
+  if (json.contains("render_leaves"))
+    this->set_mesh_visible(keys::mesh::leaves, json["render_leaves"]);
 
   // Normals
   json_safe_get(json, "normal_visualization", normal_visualization);
@@ -163,14 +171,14 @@ nlohmann::json RenderWidget::json_to() const
       {"hmap_h", hmap_h},
 
       // Scene visibility
-      {"render_plane", render_plane},
-      {"render_points", render_points},
-      {"render_path", render_path},
-      {"render_hmap", render_hmap},
-      {"render_rocks", render_rocks},
-      {"render_trees", render_trees},
-      {"render_water", render_water},
-      {"render_leaves", render_leaves},
+      {"render_plane", this->is_mesh_visible(keys::mesh::plane)},
+      {"render_points", this->is_mesh_visible(keys::mesh::points)},
+      {"render_path", this->is_mesh_visible(keys::mesh::path)},
+      {"render_hmap", this->is_mesh_visible(keys::mesh::hmap)},
+      {"render_rocks", this->is_mesh_visible(keys::mesh::rocks)},
+      {"render_trees", this->is_mesh_visible(keys::mesh::trees)},
+      {"render_water", this->is_mesh_visible(keys::mesh::water)},
+      {"render_leaves", this->is_mesh_visible(keys::mesh::leaves)},
 
       // Normals
       {"normal_visualization", normal_visualization},

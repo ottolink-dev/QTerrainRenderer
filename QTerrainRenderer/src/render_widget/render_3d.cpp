@@ -70,57 +70,68 @@ void RenderWidget::render_scene_render_3d()
                               light_space_matrix);
 
     // base plane
-    if (this->render_plane)
+    auto *plane_drawable = this->sp_mesh_manager->get_drawable(keys::mesh::plane);
+    if (plane_drawable && plane_drawable->render_params.visible)
     {
-      p_shader->setUniformValue("base_color", QVector3D(0.2f, 0.2f, 0.2f));
+      p_shader->setUniformValue("base_color",
+                                toQVec(plane_drawable->render_params.base_color));
       p_shader->setUniformValue("add_ambiant_occlusion", false);
-      this->plane.draw();
+      plane_drawable->draw(p_shader);
     }
 
     // points
-    if (this->render_points)
+    auto *points_drawable = this->sp_mesh_manager->get_drawable(keys::mesh::points);
+    if (points_drawable && points_drawable->render_params.visible)
     {
       p_shader->setUniformValue("add_ambiant_occlusion", false);
-      this->points_instanced_mesh.draw(p_shader);
+      points_drawable->draw(p_shader);
     }
 
     // path
-    if (this->render_path)
+    auto *path_drawable = this->sp_mesh_manager->get_drawable(keys::mesh::path);
+    if (path_drawable && path_drawable->render_params.visible)
     {
-      p_shader->setUniformValue("base_color", QVector3D(1.f, 0.f, 1.f));
+      p_shader->setUniformValue("base_color",
+                                toQVec(path_drawable->render_params.base_color));
       p_shader->setUniformValue("add_ambiant_occlusion", false);
-      this->path_mesh.draw();
+      path_drawable->draw(p_shader);
     }
 
     // heightmap
-    if (this->render_hmap)
+    auto *hmap_drawable = this->sp_mesh_manager->get_drawable(keys::mesh::hmap);
+    if (hmap_drawable && hmap_drawable->render_params.visible)
     {
-      p_shader->setUniformValue("base_color", QVector3D(1.f, 1.f, 1.f));
+      p_shader->setUniformValue("base_color",
+                                toQVec(hmap_drawable->render_params.base_color));
       p_shader->setUniformValue(
           "use_texture_albedo",
           true && !this->bypass_texture_albedo &&
-              this->sp_texture_manager->get(QTR_TEX_ALBEDO)->is_active());
+              this->sp_texture_manager->get(keys::tex::albedo)->is_active());
 
-      if (this->sp_texture_manager->get(QTR_TEX_NORMAL)->is_active())
+      if (this->sp_texture_manager->get(keys::tex::normal)->is_active())
         p_shader->setUniformValue("normal_map_scaling", this->normal_map_scaling);
 
       p_shader->setUniformValue("add_ambiant_occlusion", this->add_ambiant_occlusion);
-      this->hmap.draw();
+      hmap_drawable->draw(p_shader);
 
       p_shader->setUniformValue("normal_map_scaling", 0.f);
       p_shader->setUniformValue("use_texture_albedo", false);
     }
 
-    if (this->render_rocks)
-      this->rocks_instanced_mesh.draw(p_shader);
+    auto *rocks_drawable = this->sp_mesh_manager->get_drawable(keys::mesh::rocks);
+    if (rocks_drawable && rocks_drawable->render_params.visible)
+      rocks_drawable->draw(p_shader);
 
-    if (this->render_leaves)
-      this->leaves_instanced_mesh.draw(p_shader);
+    auto *leaves_drawable = this->sp_mesh_manager->get_drawable(keys::mesh::leaves);
+    if (leaves_drawable && leaves_drawable->render_params.visible)
+      leaves_drawable->draw(p_shader);
 
-    if (this->render_trees)
-      this->trees_instanced_mesh.draw(p_shader);
+    auto *trees_drawable = this->sp_mesh_manager->get_drawable(keys::mesh::trees);
+    if (trees_drawable && trees_drawable->render_params.visible)
+      trees_drawable->draw(p_shader);
 
-    if (this->render_water)
+    auto *water_drawable = this->sp_mesh_manager->get_drawable(keys::mesh::water);
+    if (water_drawable && water_drawable->render_params.visible)
     {
       p_shader->setUniformValue("spec_strength", this->water_spec_strength);
 
@@ -152,8 +163,8 @@ void RenderWidget::render_scene_render_3d()
 
       // either use the input mesh or use a simple plane surface as a
       // fallback
-      if (this->water_mesh.is_active())
-        this->water_mesh.draw();
+      if (water_drawable->is_active())
+        water_drawable->draw(p_shader);
     }
 
     this->unbind_textures();
@@ -209,26 +220,38 @@ void RenderWidget::render_ui_render_3d()
   {
     ImGui::TableNextRow();
     ImGui::TableNextColumn();
-    changed |= ImGui::Checkbox("Plane", &this->render_plane);
+    changed |= ImGui::Checkbox(
+        "Plane",
+        &this->sp_mesh_manager->get_render_params(keys::mesh::plane)->visible);
     //
     ImGui::TableNextRow();
     ImGui::TableNextColumn();
-    changed |= ImGui::Checkbox("Terrain", &this->render_hmap);
+    changed |= ImGui::Checkbox(
+        "Terrain",
+        &this->sp_mesh_manager->get_render_params(keys::mesh::hmap)->visible);
     ImGui::TableNextColumn();
-    changed |= ImGui::Checkbox("Water##render", &this->render_water);
+    changed |= ImGui::Checkbox(
+        "Water##render",
+        &this->sp_mesh_manager->get_render_params(keys::mesh::water)->visible);
     //
     ImGui::TableNextRow();
     ImGui::TableNextColumn();
-    changed |= ImGui::Checkbox("Points", &this->render_points);
+    changed |= ImGui::Checkbox(
+        "Points",
+        &this->sp_mesh_manager->get_render_params(keys::mesh::points)->visible);
     ImGui::SameLine();
     ImGui::TableNextColumn();
-    changed |= ImGui::Checkbox("Path", &this->render_path);
+    changed |= ImGui::Checkbox(
+        "Path",
+        &this->sp_mesh_manager->get_render_params(keys::mesh::path)->visible);
     //
     // ImGui::TableNextRow();
     // ImGui::TableNextColumn();
-    // changed |= ImGui::Checkbox("Rocks", &this->render_rocks);
+    // changed |= ImGui::Checkbox("Rocks",
+    // &this->sp_mesh_manager->get_render_params(RenderWidget::MESH_ROCKS)->visible);
     // ImGui::TableNextColumn();
-    // changed |= ImGui::Checkbox("Trees", &this->render_trees);
+    // changed |= ImGui::Checkbox("Trees",
+    // &this->sp_mesh_manager->get_render_params(RenderWidget::MESH_TREES)->visible);
 
     ImGui::EndTable();
   }
