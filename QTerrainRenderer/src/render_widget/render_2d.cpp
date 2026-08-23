@@ -86,6 +86,14 @@ void RenderWidget::render_scene_render_2d()
 void RenderWidget::render_ui_render_2d()
 {
   ImGui::SetCurrentContext(this->imgui_context);
+
+  {
+    const float dpr = this->devicePixelRatioF();
+    ImGuiIO    &io = ImGui::GetIO();
+    io.DisplaySize = ImVec2(float(this->width()), float(this->height()));
+    io.DisplayFramebufferScale = ImVec2(dpr, dpr);
+  }
+
   ImGui_ImplOpenGL3_NewFrame();
   ImGui::NewFrame();
 

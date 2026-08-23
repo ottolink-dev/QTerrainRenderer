@@ -15,6 +15,7 @@ namespace qtr
 void RenderWidget::mousePressEvent(QMouseEvent *e)
 {
   ImGuiIO &io = this->get_imgui_io();
+  io.MousePos = ImVec2(float(e->position().x()), float(e->position().y()));
 
   if (e->button() == Qt::LeftButton)
     io.MouseDown[0] = true;
@@ -29,6 +30,7 @@ void RenderWidget::mousePressEvent(QMouseEvent *e)
 void RenderWidget::mouseReleaseEvent(QMouseEvent *e)
 {
   ImGuiIO &io = this->get_imgui_io();
+  io.MousePos = ImVec2(float(e->position().x()), float(e->position().y()));
 
   if (e->button() == Qt::LeftButton)
     io.MouseDown[0] = false;

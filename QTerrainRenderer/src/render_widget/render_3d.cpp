@@ -172,7 +172,8 @@ void RenderWidget::render_ui_render_3d()
   {
     const float dpr = this->devicePixelRatioF();
     ImGuiIO    &io = ImGui::GetIO();
-    io.DisplaySize = ImVec2(float(this->width()) * dpr, float(this->height()) * dpr);
+    io.DisplaySize = ImVec2(float(this->width()), float(this->height()));
+    io.DisplayFramebufferScale = ImVec2(dpr, dpr);
   }
 
   ImGui_ImplOpenGL3_NewFrame();

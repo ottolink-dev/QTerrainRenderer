@@ -465,7 +465,10 @@ void RenderWidget::resizeGL(int w, int h)
   if (this->imgui_context)
   {
     ImGui::SetCurrentContext(this->imgui_context);
-    this->get_imgui_io().DisplaySize = ImVec2(float(w), float(h));
+    const float dpr = this->devicePixelRatioF();
+    this->get_imgui_io().DisplaySize = ImVec2(float(this->width()),
+                                              float(this->height()));
+    this->get_imgui_io().DisplayFramebufferScale = ImVec2(dpr, dpr);
   }
   this->need_update = true;
   this->doneCurrent();
@@ -505,7 +508,10 @@ void RenderWidget::set_common_uniforms(QOpenGLShaderProgram &shader,
   shader.setUniformValue("light_pos", toQVec(light.position));
 
   // Screen & depth
-  shader.setUniformValue("screen_size", toQVec(glm::vec2(width(), height())));
+  const float dpr = this->devicePixelRatioF();
+  shader.setUniformValue("screen_size",
+                         toQVec(glm::vec2(static_cast<float>(this->width()) * dpr,
+                                          static_cast<float>(this->height()) * dpr)));
   shader.setUniformValue("near_plane", camera.near_plane);
   shader.setUniformValue("far_plane", camera.far_plane);
 
@@ -870,7 +876,11 @@ void RenderWidget::set_water_geometry(const std::vector<float> &data,
 
 void RenderWidget::setup_gl_state()
 {
-  glViewport(0, 0, this->width(), this->height());
+  const float dpr = this->devicePixelRatioF();
+  glViewport(0,
+             0,
+             static_cast<GLsizei>(this->width() * dpr),
+             static_cast<GLsizei>(this->height() * dpr));
   glClearColor(0.1f, 0.1f, 0.1f, 1.0f);
   glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
