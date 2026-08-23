@@ -34,6 +34,13 @@ std::vector<uint8_t> load_png_as_8bit_rgba(const std::string &path,
                                            int               &width,
                                            int               &height);
 
+inline std::vector<uint8_t> load_image_as_8bit_rgba(const std::string &path,
+                                                    int               &width,
+                                                    int               &height)
+{
+  return load_png_as_8bit_rgba(path, width, height);
+}
+
 std::vector<float> load_png_as_grayscale(const std::string &path,
                                          int               &width,
                                          int               &height);

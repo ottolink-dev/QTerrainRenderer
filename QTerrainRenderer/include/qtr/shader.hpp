@@ -80,4 +80,12 @@ static const std::string viewer2d_cmap_frag =
 #include "shaders/viewer2d_cmap.frag"
     ;
 
+static const std::string skybox_vertex =
+#include "shaders/skybox.vert"
+    ;
+
+static const std::string skybox_frag =
+#include "shaders/skybox.frag"
+    ;
+
 } // namespace qtr

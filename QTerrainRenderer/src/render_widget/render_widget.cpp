@@ -73,6 +73,7 @@ RenderWidget::RenderWidget(const std::string &_title, QWidget *parent)
   this->sp_mesh_manager->add_instanced_mesh(keys::mesh::rocks);
   this->sp_mesh_manager->add_instanced_mesh(keys::mesh::trees);
   this->sp_mesh_manager->add_instanced_mesh(keys::mesh::leaves);
+  this->sp_mesh_manager->add_mesh(keys::mesh::skybox);
 
   // configure default render parameters
   this->sp_mesh_manager->get_render_params(keys::mesh::plane)->base_color = glm::vec3(
@@ -84,13 +85,15 @@ RenderWidget::RenderWidget(const std::string &_title, QWidget *parent)
       0.0f,
       1.0f);
   this->sp_mesh_manager->get_render_params(keys::mesh::water)->cast_shadow = false;
+  this->sp_mesh_manager->get_render_params(keys::mesh::skybox)->cast_shadow = false;
 
   // add placeholder for each texture
   const std::vector<std::string> tex_names = {keys::tex::albedo,
                                               keys::tex::hmap,
                                               keys::tex::normal,
                                               keys::tex::shadow_map,
-                                              keys::tex::depth};
+                                              keys::tex::depth,
+                                              keys::tex::skybox};
   for (auto &s : tex_names)
     this->sp_texture_manager->add(s);
 }
@@ -274,6 +277,8 @@ void RenderWidget::initializeGL()
                                                 viewer2d_cmap_vertex,
                                                 viewer2d_cmap_frag);
 
+  this->sp_shader_manager->add_shader_from_code("skybox", skybox_vertex, skybox_frag);
+
   // --- Meshes
 
   // keep the plane square, use hmap_wx for both directions
@@ -283,6 +288,15 @@ void RenderWidget::initializeGL()
                  0.f,
                  2000.f * this->hmap_wx,
                  2000.f * this->hmap_wx);
+
+  // skybox unit cube
+  generate_cube(*this->sp_mesh_manager->get_mesh(keys::mesh::skybox),
+                0.f,
+                0.f,
+                0.f,
+                2.f,
+                2.f,
+                2.f);
 
   // --- Textures
 
@@ -509,6 +523,14 @@ void RenderWidget::set_common_uniforms(QOpenGLShaderProgram &shader,
   shader.setUniformValue("fog_color", toQVec(fog_color));
   shader.setUniformValue("fog_density", fog_density);
   shader.setUniformValue("fog_height", fog_height);
+  shader.setUniformValue("fog_match_skybox", fog_match_skybox);
+  shader.setUniformValue("skybox_mode", static_cast<int>(skybox_mode));
+  shader.setUniformValue("skybox_color", toQVec(skybox_color));
+  shader.setUniformValue("skybox_rotation", skybox_rotation);
+  shader.setUniformValue(
+      "has_skybox_texture",
+      this->sp_texture_manager->get(keys::tex::skybox) &&
+          this->sp_texture_manager->get(keys::tex::skybox)->is_active());
   shader.setUniformValue("add_atmospheric_scattering", add_atmospheric_scattering);
   shader.setUniformValue("scattering_density", scattering_density);
   shader.setUniformValue("rayleigh_color", toQVec(rayleigh_color));
@@ -713,6 +735,46 @@ void RenderWidget::update_time()
 {
   this->dt = static_cast<float>(this->timer.restart()) / 1000.0f;
   this->time += this->dt;
+}
+
+void RenderWidget::set_show_skybox(bool show)
+{
+  this->show_skybox = show;
+  this->need_update = true;
+}
+
+void RenderWidget::set_skybox_mode(SkyboxMode mode)
+{
+  this->skybox_mode = mode;
+  this->need_update = true;
+}
+
+void RenderWidget::set_skybox_color(const glm::vec3 &color)
+{
+  this->skybox_color = color;
+  this->need_update = true;
+}
+
+void RenderWidget::set_skybox_rotation(float rotation_rad)
+{
+  this->skybox_rotation = rotation_rad;
+  this->need_update = true;
+}
+
+void RenderWidget::set_fog_match_skybox(bool match)
+{
+  this->fog_match_skybox = match;
+  this->need_update = true;
+}
+
+void RenderWidget::set_skybox_image(const std::vector<uint8_t> &data, int width)
+{
+  this->makeCurrent();
+  if (this->sp_texture_manager->get(keys::tex::skybox))
+    this->sp_texture_manager->get(keys::tex::skybox)->from_image_8bit_rgba(data, width);
+  this->skybox_mode = SkyboxMode::SKYBOX_IMAGE;
+  this->need_update = true;
+  this->doneCurrent();
 }
 
 } // namespace qtr

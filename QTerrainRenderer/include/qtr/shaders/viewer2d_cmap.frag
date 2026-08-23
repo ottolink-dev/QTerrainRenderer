@@ -29,19 +29,11 @@ uniform float sun_zenith;  // degrees (0=overhead)
 // --- Shadows
 uniform bool hillshading;
 
-// --- Normal visualization
-uniform bool normal_visualization;
-
-// --- Texturing
-uniform bool use_texture_albedo;
-uniform int  cmap;
+// --- Colormap
+uniform int cmap;
 
 // --- Textures
-uniform sampler2D texture_albedo;
 uniform sampler2D texture_hmap;
-uniform sampler2D texture_normal;
-uniform sampler2D texture_shadow_map;
-uniform sampler2D texture_depth;
 
 // ============================================================================
 // Utility Functions
@@ -119,23 +111,6 @@ void main()
     color = frag_instance_color;
   else
     color = base_color;
-
-  // if (normal_visualization)
-  // {
-  //   vec3 n = normalize(normal);
-  //   // Remap from [-1,1] to [0,1]
-  //   n = n * 0.5 + 0.5;
-  //   frag_color = vec4(vec3(n.x, n.z, n.y), 1.0);
-  //   return;
-  // }
-
-  // // define base color (may be overriden afterwards depending on the
-  // // shader parameters)
-  // if (use_texture_albedo)
-  // {
-  //   color = texture(texture_albedo, frag_uv).xyz;
-  // }
-  // else
 
   // colormap
   {
