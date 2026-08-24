@@ -265,6 +265,27 @@ void RenderWidget::render_ui_render_3d()
   changed |= ImGui::SliderAngle("FOV", &this->camera.fov, 10.f, 180.f);
   changed |= ImGui::Checkbox("Auto rotate cam.", &this->auto_rotate_camera);
 
+  bool tess = this->hmap_tessellation;
+  if (ImGui::Checkbox("Tessellation", &tess))
+  {
+    this->set_hmap_tessellation(tess);
+    changed = true;
+  }
+  if (this->hmap_tessellation)
+  {
+    float err = this->hmap_tessellation_max_error;
+    if (ImGui::SliderFloat("Max error##tess",
+                           &err,
+                           0.0001f,
+                           0.05f,
+                           "%.4f",
+                           ImGuiSliderFlags_Logarithmic))
+    {
+      this->set_hmap_tessellation_max_error(err);
+      changed = true;
+    }
+  }
+
   if (ImGui::Button("Reset Camera"))
   {
     this->reset_camera_position();
@@ -323,6 +344,12 @@ void RenderWidget::render_ui_render_3d()
     changed |= ImGui::Checkbox("Tonemap", &this->apply_tonemap);
 
     ImGui::Text("Normal Map");
+    bool auto_nmap = this->auto_generate_normal_map;
+    if (ImGui::Checkbox("Auto-generate", &auto_nmap))
+    {
+      this->set_auto_generate_normal_map(auto_nmap);
+      changed = true;
+    }
     changed |= ImGui::SliderFloat("Scaling", &this->normal_map_scaling, 0.f, 2.f);
   }
 

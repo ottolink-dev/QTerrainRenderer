@@ -56,6 +56,10 @@ void RenderWidget::json_from(nlohmann::json const &json)
   json_safe_get(json, "hmap_wx", hmap_wx);
   json_safe_get(json, "hmap_wy", hmap_wy);
   json_safe_get(json, "hmap_h", hmap_h);
+  json_safe_get(json, "hmap_tessellation", hmap_tessellation);
+  json_safe_get(json, "hmap_tessellation_max_error", hmap_tessellation_max_error);
+  json_safe_get(json, "hmap_tessellation_max_triangles", hmap_tessellation_max_triangles);
+  json_safe_get(json, "hmap_tessellation_max_points", hmap_tessellation_max_points);
 
   // Scene visibility
   if (json.contains("render_plane"))
@@ -76,6 +80,7 @@ void RenderWidget::json_from(nlohmann::json const &json)
     this->set_mesh_visible(keys::mesh::leaves, json["render_leaves"]);
 
   // Normals
+  json_safe_get(json, "auto_generate_normal_map", auto_generate_normal_map);
   json_safe_get(json, "normal_visualization", normal_visualization);
   json_safe_get(json, "normal_map_scaling", normal_map_scaling);
 
@@ -176,6 +181,10 @@ nlohmann::json RenderWidget::json_to() const
       {"hmap_wx", hmap_wx},
       {"hmap_wy", hmap_wy},
       {"hmap_h", hmap_h},
+      {"hmap_tessellation", hmap_tessellation},
+      {"hmap_tessellation_max_error", hmap_tessellation_max_error},
+      {"hmap_tessellation_max_triangles", hmap_tessellation_max_triangles},
+      {"hmap_tessellation_max_points", hmap_tessellation_max_points},
 
       // Scene visibility
       {"render_plane", this->is_mesh_visible(keys::mesh::plane)},
@@ -188,6 +197,7 @@ nlohmann::json RenderWidget::json_to() const
       {"render_leaves", this->is_mesh_visible(keys::mesh::leaves)},
 
       // Normals
+      {"auto_generate_normal_map", auto_generate_normal_map},
       {"normal_visualization", normal_visualization},
       {"normal_map_scaling", normal_map_scaling},
 

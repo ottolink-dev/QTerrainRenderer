@@ -27,6 +27,21 @@ void generate_heightmap(Mesh                     &mesh,
                         float                     exclude_below = -FLT_MAX,
                         float                    *p_hmin = nullptr);
 
+void generate_heightmap_tessellated(Mesh                     &mesh,
+                                    const std::vector<float> &data,
+                                    int                       width,
+                                    int                       height,
+                                    float                     x,
+                                    float                     y,
+                                    float                     z,
+                                    float                     lx,
+                                    float                     ly,
+                                    float                     lz,
+                                    float                     max_error,
+                                    int                       max_triangles = 0,
+                                    int                       max_points = 0,
+                                    float                    *p_hmin = nullptr);
+
 void update_heightmap_elevation(Mesh                     &mesh,
                                 const std::vector<float> &data,
                                 int                       width,
