@@ -275,7 +275,7 @@ private:
 
   // --- Skybox
   bool       show_skybox = true;
-  SkyboxMode skybox_mode = SkyboxMode::SKYBOX_UNIFORM_COLOR;
+  SkyboxMode skybox_mode = SkyboxMode::SKYBOX_IMAGE;
   glm::vec3  skybox_color = glm::vec3(0.53f, 0.81f, 0.92f); // sky blue
   float      skybox_rotation = 0.f;
   bool       fog_match_skybox = true;
