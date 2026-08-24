@@ -101,14 +101,6 @@ void Mesh::create(std::vector<Vertex> vertices_in,
 
   glBindVertexArray(0);
 
-  qtr::Logger::log()->trace(
-      "Mesh::create: init_ok={}, vao={}, vbo={}, ebo={}, vcount={}",
-      ok,
-      this->vao,
-      this->vbo,
-      this->ebo,
-      this->vertex_count);
-
   if (store_cpu_copy)
   {
     this->vertices = std::move(vertices_in);

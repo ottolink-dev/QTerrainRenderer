@@ -144,11 +144,7 @@ void RenderWidget::clear()
 
   Mesh *skybox_mesh = this->sp_mesh_manager->get_mesh(keys::mesh::skybox);
   if (skybox_mesh)
-  {
     generate_cube(*skybox_mesh, 0.f, 0.f, 0.f, 2.f, 2.f, 2.f);
-    qtr::Logger::log()->trace("RenderWidget::clear: regenerated skybox cube, is_active={}",
-                              skybox_mesh->is_active());
-  }
 
   this->need_update = true;
 
