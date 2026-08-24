@@ -1,18 +1,16 @@
-cmake_minimum_required(VERSION 3.12)
-project(qterrain_renderer-root VERSION 0.0.0)
+cmake_minimum_required(VERSION 3.16)
+project(
+  qterrain_renderer-root
+  VERSION 0.0.0
+  LANGUAGES CXX)
 
-# --- global setup
+# --- Global output paths
 
-set(EXECUTABLE_OUTPUT_PATH ${CMAKE_BINARY_DIR}/bin)
+set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/bin)
+set(CMAKE_LIBRARY_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/lib)
+set(CMAKE_ARCHIVE_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/lib)
 
-if(UNIX AND NOT APPLE)
-  message(STATUS "Configuring for LINUX system...")
-  add_definitions("-DQTR_OS_LINUX")
-else()
-  message(STATUS "NOT configuring for LINUX system...")
-endif()
-
-# --- release type
+# --- Default build type
 
 if(NOT CMAKE_BUILD_TYPE AND NOT CMAKE_CONFIGURATION_TYPES)
   message(STATUS "Setting default build type to Release")
@@ -23,46 +21,52 @@ endif()
 
 message(STATUS "Release type: ${CMAKE_BUILD_TYPE}")
 
-add_compile_definitions($<$<CONFIG:Debug>:DEBUG_BUILD>
-                        $<$<CONFIG:Release>:RELEASE_BUILD>)
-
-set(tmp_qt_logging_rules
-    "qt.widgets.gestures.debug=false;qt.qpa.*=false;qt.pointer.*=false")
-string(REPLACE ";" "\\;" tmp_qt_logging_rules_escaped "${qt_logging_rules}")
-add_compile_definitions(
-  QTR_QPUTENV_QT_LOGGING_RULES="\"${tmp_qt_logging_rules_escaped}\"")
-
-# --- compiler options
+# --- C++ standard
 
 set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
+set(CMAKE_CXX_EXTENSIONS OFF)
 
-if(CMAKE_CXX_COMPILER_ID STREQUAL "MSVC")
-  # MSVC compiler options
-  set(CMAKE_CXX_FLAGS
-      "${CMAKE_CXX_FLAGS} /W4 /Od /D M_PI=3.14159265358979323846")
+# --- Interface target for compiler options & definitions
+
+add_library(qtr_compiler_flags INTERFACE)
+
+target_compile_definitions(
+  qtr_compiler_flags
+  INTERFACE $<$<CONFIG:Debug>:DEBUG_BUILD> $<$<CONFIG:Release>:RELEASE_BUILD>
+            $<$<BOOL:${UNIX}>:QTR_OS_LINUX> $<$<CONFIG:Debug>:LOG_LEVEL=3>
+            $<$<CONFIG:Release>:LOG_LEVEL=3>)
+
+if(MSVC)
+  target_compile_options(
+    qtr_compiler_flags INTERFACE /W4 $<$<CONFIG:Debug>:/Od> /D_USE_MATH_DEFINES)
 else()
-  # GNU compiler options
-
-  # Common to all configs
-  set(CMAKE_CXX_FLAGS
-      "${CMAKE_CXX_FLAGS} -Ofast -ffast-math -Wall -Wextra -Wno-dangling-reference -pthread -Wno-deprecated-declarations"
-  )
-
-  # Add per-configuration flags
-  set(CMAKE_CXX_FLAGS_DEBUG
-      "${CMAKE_CXX_FLAGS_DEBUG} -g -DLOG_LEVEL=3 -fno-omit-frame-pointer \
-    -Wpedantic -Wno-psabi -Wno-unused-parameter \
-    -Wcast-align -Wcast-qual  \
-    -Wnull-dereference -Wnon-virtual-dtor -Woverloaded-virtual \
-    -Wzero-as-null-pointer-constant -Wduplicated-cond \
-    -Wduplicated-branches -Wlogical-op -Wuseless-cast \
-    ")
-
-  set(CMAKE_CXX_FLAGS_RELEASE "${CMAKE_CXX_FLAGS_RELEASE} -DLOG_LEVEL=3")
+  target_compile_options(
+    qtr_compiler_flags
+    INTERFACE -Wall
+              -Wextra
+              -Wno-dangling-reference
+              -pthread
+              -Wno-deprecated-declarations
+              $<$<CONFIG:Release>:-O3>
+              $<$<CONFIG:Debug>:-g>
+              $<$<CONFIG:Debug>:-fno-omit-frame-pointer>
+              $<$<CONFIG:Debug>:-Wpedantic>
+              $<$<CONFIG:Debug>:-Wno-psabi>
+              $<$<CONFIG:Debug>:-Wno-unused-parameter>
+              $<$<CONFIG:Debug>:-Wcast-align>
+              $<$<CONFIG:Debug>:-Wcast-qual>
+              $<$<CONFIG:Debug>:-Wnull-dereference>
+              $<$<CONFIG:Debug>:-Wnon-virtual-dtor>
+              $<$<CONFIG:Debug>:-Woverloaded-virtual>
+              $<$<CONFIG:Debug>:-Wzero-as-null-pointer-constant>
+              $<$<CONFIG:Debug>:-Wduplicated-cond>
+              $<$<CONFIG:Debug>:-Wduplicated-branches>
+              $<$<CONFIG:Debug>:-Wlogical-op>
+              $<$<CONFIG:Debug>:-Wuseless-cast>)
 endif()
 
-# --- dependencies
+# --- Dependencies
 
 find_package(nlohmann_json 3.11 REQUIRED)
 find_package(spdlog REQUIRED)

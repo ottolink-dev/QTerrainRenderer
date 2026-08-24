@@ -70,57 +70,68 @@ void RenderWidget::render_scene_render_3d()
                               light_space_matrix);
 
     // base plane
-    if (this->render_plane)
+    auto *plane_drawable = this->sp_mesh_manager->get_drawable(keys::mesh::plane);
+    if (plane_drawable && plane_drawable->render_params.visible)
     {
-      p_shader->setUniformValue("base_color", QVector3D(0.2f, 0.2f, 0.2f));
+      p_shader->setUniformValue("base_color",
+                                toQVec(plane_drawable->render_params.base_color));
       p_shader->setUniformValue("add_ambiant_occlusion", false);
-      this->plane.draw();
+      plane_drawable->draw(p_shader);
     }
 
     // points
-    if (this->render_points)
+    auto *points_drawable = this->sp_mesh_manager->get_drawable(keys::mesh::points);
+    if (points_drawable && points_drawable->render_params.visible)
     {
       p_shader->setUniformValue("add_ambiant_occlusion", false);
-      this->points_instanced_mesh.draw(p_shader);
+      points_drawable->draw(p_shader);
     }
 
     // path
-    if (this->render_path)
+    auto *path_drawable = this->sp_mesh_manager->get_drawable(keys::mesh::path);
+    if (path_drawable && path_drawable->render_params.visible)
     {
-      p_shader->setUniformValue("base_color", QVector3D(1.f, 0.f, 1.f));
+      p_shader->setUniformValue("base_color",
+                                toQVec(path_drawable->render_params.base_color));
       p_shader->setUniformValue("add_ambiant_occlusion", false);
-      this->path_mesh.draw();
+      path_drawable->draw(p_shader);
     }
 
     // heightmap
-    if (this->render_hmap)
+    auto *hmap_drawable = this->sp_mesh_manager->get_drawable(keys::mesh::hmap);
+    if (hmap_drawable && hmap_drawable->render_params.visible)
     {
-      p_shader->setUniformValue("base_color", QVector3D(1.f, 1.f, 1.f));
+      p_shader->setUniformValue("base_color",
+                                toQVec(hmap_drawable->render_params.base_color));
       p_shader->setUniformValue(
           "use_texture_albedo",
           true && !this->bypass_texture_albedo &&
-              this->sp_texture_manager->get(QTR_TEX_ALBEDO)->is_active());
+              this->sp_texture_manager->get(keys::tex::albedo)->is_active());
 
-      if (this->sp_texture_manager->get(QTR_TEX_NORMAL)->is_active())
+      if (this->sp_texture_manager->get(keys::tex::normal)->is_active())
         p_shader->setUniformValue("normal_map_scaling", this->normal_map_scaling);
 
       p_shader->setUniformValue("add_ambiant_occlusion", this->add_ambiant_occlusion);
-      this->hmap.draw();
+      hmap_drawable->draw(p_shader);
 
       p_shader->setUniformValue("normal_map_scaling", 0.f);
       p_shader->setUniformValue("use_texture_albedo", false);
     }
 
-    if (this->render_rocks)
-      this->rocks_instanced_mesh.draw(p_shader);
+    auto *rocks_drawable = this->sp_mesh_manager->get_drawable(keys::mesh::rocks);
+    if (rocks_drawable && rocks_drawable->render_params.visible)
+      rocks_drawable->draw(p_shader);
 
-    if (this->render_leaves)
-      this->leaves_instanced_mesh.draw(p_shader);
+    auto *leaves_drawable = this->sp_mesh_manager->get_drawable(keys::mesh::leaves);
+    if (leaves_drawable && leaves_drawable->render_params.visible)
+      leaves_drawable->draw(p_shader);
 
-    if (this->render_trees)
-      this->trees_instanced_mesh.draw(p_shader);
+    auto *trees_drawable = this->sp_mesh_manager->get_drawable(keys::mesh::trees);
+    if (trees_drawable && trees_drawable->render_params.visible)
+      trees_drawable->draw(p_shader);
 
-    if (this->render_water)
+    auto *water_drawable = this->sp_mesh_manager->get_drawable(keys::mesh::water);
+    if (water_drawable && water_drawable->render_params.visible)
     {
       p_shader->setUniformValue("spec_strength", this->water_spec_strength);
 
@@ -152,14 +163,72 @@ void RenderWidget::render_scene_render_3d()
 
       // either use the input mesh or use a simple plane surface as a
       // fallback
-      if (this->water_mesh.is_active())
-        this->water_mesh.draw();
+      if (water_drawable->is_active())
+        water_drawable->draw(p_shader);
     }
 
     this->unbind_textures();
 
     p_shader->release();
   }
+
+  // --- skybox pass
+  this->render_skybox(this->camera.get_view_matrix(), projection);
+}
+
+void RenderWidget::render_skybox(const glm::mat4 &view, const glm::mat4 &projection)
+{
+  if (!this->show_skybox)
+    return;
+
+  auto *skybox_drawable = this->sp_mesh_manager->get_drawable(keys::mesh::skybox);
+  if (!skybox_drawable)
+    return;
+
+  QOpenGLShaderProgram *p_shader = this->sp_shader_manager->get("skybox")->get();
+  if (!p_shader)
+    return;
+
+  glDepthFunc(GL_LEQUAL);
+  glDepthMask(GL_FALSE);
+  glDisable(GL_CULL_FACE);
+
+  p_shader->bind();
+
+  p_shader->setUniformValue("view", toQMat(view));
+  p_shader->setUniformValue("projection", toQMat(projection));
+  p_shader->setUniformValue("skybox_mode", static_cast<int>(this->skybox_mode));
+  p_shader->setUniformValue("skybox_color", toQVec(this->skybox_color));
+  p_shader->setUniformValue("skybox_rotation", this->skybox_rotation);
+  p_shader->setUniformValue("gamma_correction", this->gamma_correction);
+  p_shader->setUniformValue("apply_tonemap", this->apply_tonemap);
+
+  // Fog
+  p_shader->setUniformValue("add_fog", this->add_fog);
+  p_shader->setUniformValue("fog_color", toQVec(this->fog_color));
+  p_shader->setUniformValue("fog_density", this->fog_density);
+  p_shader->setUniformValue("fog_height", this->fog_height);
+  p_shader->setUniformValue("fog_match_skybox", this->fog_match_skybox);
+
+  bool has_tex = this->sp_texture_manager->get(keys::tex::skybox) &&
+                 this->sp_texture_manager->get(keys::tex::skybox)->is_active();
+  p_shader->setUniformValue("has_skybox_texture", has_tex);
+
+  if (has_tex)
+  {
+    this->sp_texture_manager->get(keys::tex::skybox)->bind(0);
+    p_shader->setUniformValue("texture_skybox", 0);
+  }
+
+  skybox_drawable->draw(p_shader);
+
+  if (has_tex)
+    this->sp_texture_manager->get(keys::tex::skybox)->unbind();
+
+  p_shader->release();
+
+  glDepthMask(GL_TRUE);
+  glDepthFunc(GL_LESS);
 }
 
 void RenderWidget::render_ui_render_3d()
@@ -172,7 +241,8 @@ void RenderWidget::render_ui_render_3d()
   {
     const float dpr = this->devicePixelRatioF();
     ImGuiIO    &io = ImGui::GetIO();
-    io.DisplaySize = ImVec2(float(this->width()) * dpr, float(this->height()) * dpr);
+    io.DisplaySize = ImVec2(float(this->width()), float(this->height()));
+    io.DisplayFramebufferScale = ImVec2(dpr, dpr);
   }
 
   ImGui_ImplOpenGL3_NewFrame();
@@ -208,26 +278,38 @@ void RenderWidget::render_ui_render_3d()
   {
     ImGui::TableNextRow();
     ImGui::TableNextColumn();
-    changed |= ImGui::Checkbox("Plane", &this->render_plane);
+    changed |= ImGui::Checkbox(
+        "Plane",
+        &this->sp_mesh_manager->get_render_params(keys::mesh::plane)->visible);
     //
     ImGui::TableNextRow();
     ImGui::TableNextColumn();
-    changed |= ImGui::Checkbox("Terrain", &this->render_hmap);
+    changed |= ImGui::Checkbox(
+        "Terrain",
+        &this->sp_mesh_manager->get_render_params(keys::mesh::hmap)->visible);
     ImGui::TableNextColumn();
-    changed |= ImGui::Checkbox("Water##render", &this->render_water);
+    changed |= ImGui::Checkbox(
+        "Water##render",
+        &this->sp_mesh_manager->get_render_params(keys::mesh::water)->visible);
     //
     ImGui::TableNextRow();
     ImGui::TableNextColumn();
-    changed |= ImGui::Checkbox("Points", &this->render_points);
+    changed |= ImGui::Checkbox(
+        "Points",
+        &this->sp_mesh_manager->get_render_params(keys::mesh::points)->visible);
     ImGui::SameLine();
     ImGui::TableNextColumn();
-    changed |= ImGui::Checkbox("Path", &this->render_path);
+    changed |= ImGui::Checkbox(
+        "Path",
+        &this->sp_mesh_manager->get_render_params(keys::mesh::path)->visible);
     //
     // ImGui::TableNextRow();
     // ImGui::TableNextColumn();
-    // changed |= ImGui::Checkbox("Rocks", &this->render_rocks);
+    // changed |= ImGui::Checkbox("Rocks",
+    // &this->sp_mesh_manager->get_render_params(RenderWidget::MESH_ROCKS)->visible);
     // ImGui::TableNextColumn();
-    // changed |= ImGui::Checkbox("Trees", &this->render_trees);
+    // changed |= ImGui::Checkbox("Trees",
+    // &this->sp_mesh_manager->get_render_params(RenderWidget::MESH_TREES)->visible);
 
     ImGui::EndTable();
   }
@@ -298,23 +380,68 @@ void RenderWidget::render_ui_render_3d()
     }
   }
 
+  // --- Skybox ---
+  if (ImGui::CollapsingHeader("Skybox", ImGuiTreeNodeFlags_DefaultOpen))
+  {
+    changed |= ImGui::Checkbox("Enable skybox", &this->show_skybox);
+    if (this->show_skybox)
+    {
+      const char *skybox_modes[] = {"Uniform Color", "Image (Equirectangular)"};
+      int         current_mode = static_cast<int>(this->skybox_mode);
+      if (ImGui::Combo("Mode##skybox",
+                       &current_mode,
+                       skybox_modes,
+                       IM_ARRAYSIZE(skybox_modes)))
+      {
+        this->skybox_mode = static_cast<SkyboxMode>(current_mode);
+        changed = true;
+      }
+
+      if (this->skybox_mode == SkyboxMode::SKYBOX_UNIFORM_COLOR)
+      {
+        changed |= ImGui::ColorEdit3("Sky color", glm::value_ptr(this->skybox_color));
+      }
+      else if (this->skybox_mode == SkyboxMode::SKYBOX_IMAGE)
+      {
+        changed |= ImGui::SliderAngle("Rotation##skybox",
+                                      &this->skybox_rotation,
+                                      -180.f,
+                                      180.f);
+        bool has_tex = this->sp_texture_manager->get(keys::tex::skybox) &&
+                       this->sp_texture_manager->get(keys::tex::skybox)->is_active();
+        if (!has_tex)
+          ImGui::TextColored(ImVec4(1.f, 0.5f, 0.2f, 1.f),
+                             "No skybox texture loaded (fallback to sky color)");
+      }
+    }
+  }
+
   // --- Atmosphere ---
   if (ImGui::CollapsingHeader("Atmosphere", ImGuiTreeNodeFlags_DefaultOpen))
   {
     changed |= ImGui::Checkbox("Fog", &this->add_fog);
-    changed |= ImGui::SliderFloat("Density##fog", &this->fog_density, 0.f, 100.f);
-    changed |= ImGui::SliderFloat("Height##fog", &this->fog_height, 0.f, 1.f);
-    changed |= ImGui::ColorEdit3("Color##fog", glm::value_ptr(this->fog_color));
+    if (this->add_fog)
+    {
+      changed |= ImGui::SliderFloat("Density##fog", &this->fog_density, 0.f, 100.f);
+      changed |= ImGui::SliderFloat("Height##fog", &this->fog_height, 0.f, 1.f);
+      changed |= ImGui::Checkbox("Match skybox horizon", &this->fog_match_skybox);
+      if (!this->fog_match_skybox)
+        changed |= ImGui::ColorEdit3("Color##fog", glm::value_ptr(this->fog_color));
+    }
 
     changed |= ImGui::Checkbox("Scattering", &this->add_atmospheric_scattering);
-    changed |= ImGui::SliderFloat("Density##scat", &this->scattering_density, 0.f, 1.f);
-    changed |= ImGui::SliderFloat("Fog strength##scat", &this->fog_strength, 0.f, 1.f);
-    changed |= ImGui::SliderFloat("Scattering ratio##scat",
-                                  &this->fog_scattering_ratio,
-                                  0.f,
-                                  1.f);
-    changed |= ImGui::ColorEdit3("Rayleigh color", glm::value_ptr(this->rayleigh_color));
-    changed |= ImGui::ColorEdit3("Mie color", glm::value_ptr(this->mie_color));
+    if (this->add_atmospheric_scattering)
+    {
+      changed |= ImGui::SliderFloat("Density##scat", &this->scattering_density, 0.f, 1.f);
+      changed |= ImGui::SliderFloat("Fog strength##scat", &this->fog_strength, 0.f, 1.f);
+      changed |= ImGui::SliderFloat("Scattering ratio##scat",
+                                    &this->fog_scattering_ratio,
+                                    0.f,
+                                    1.f);
+      changed |= ImGui::ColorEdit3("Rayleigh color",
+                                   glm::value_ptr(this->rayleigh_color));
+      changed |= ImGui::ColorEdit3("Mie color", glm::value_ptr(this->mie_color));
+    }
   }
 
   // --- Mouse controls overlay ---

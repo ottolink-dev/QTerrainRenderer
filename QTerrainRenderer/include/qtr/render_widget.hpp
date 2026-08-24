@@ -16,17 +16,13 @@
 
 #include "qtr/camera.hpp"
 #include "qtr/instanced_mesh.hpp"
+#include "qtr/keys.hpp"
 #include "qtr/light.hpp"
 #include "qtr/mesh.hpp"
+#include "qtr/mesh_manager.hpp"
 #include "qtr/shader_manager.hpp"
 #include "qtr/texture.hpp"
 #include "qtr/texture_manager.hpp"
-
-#define QTR_TEX_ALBEDO "albedo"
-#define QTR_TEX_HMAP "hmap"
-#define QTR_TEX_NORMAL "normal"
-#define QTR_TEX_SHADOW_MAP "shadow_map"
-#define QTR_TEX_DEPTH "depth"
 
 namespace qtr
 {
@@ -35,6 +31,12 @@ enum RenderType : int
 {
   RENDER_2D,
   RENDER_3D
+};
+
+enum SkyboxMode : int
+{
+  SKYBOX_UNIFORM_COLOR = 0,
+  SKYBOX_IMAGE = 1
 };
 
 struct Viewer2DSettings
@@ -67,28 +69,14 @@ public:
   void           json_from(nlohmann::json const &json);
   nlohmann::json json_to() const;
 
-  // --- Setters
+  // --- Setters / Getters
   void set_render_type(const RenderType &new_render_type);
 
   bool get_bypass_texture_albedo() const;
-  bool get_render_plane() const;
-  bool get_render_points() const;
-  bool get_render_path() const;
-  bool get_render_hmap() const;
-  bool get_render_rocks() const;
-  bool get_render_trees() const;
-  bool get_render_water() const;
-  bool get_render_leaves() const;
-
   void set_bypass_texture_albedo(bool new_state);
-  void set_render_plane(bool new_state);
-  void set_render_points(bool new_state);
-  void set_render_path(bool new_state);
-  void set_render_hmap(bool new_state);
-  void set_render_rocks(bool new_state);
-  void set_render_trees(bool new_state);
-  void set_render_water(bool new_state);
-  void set_render_leaves(bool new_state);
+
+  bool is_mesh_visible(const std::string &name) const;
+  void set_mesh_visible(const std::string &name, bool visible);
 
   // --- QWidget interface
   QSize sizeHint() const override;
@@ -96,47 +84,32 @@ public:
   // --- Geometry
   void clear(); // geom and texture
 
-  Mesh &get_water_mesh();
+  MeshManager &get_mesh_manager();
+  Mesh        &get_water_mesh();
+
+  void reset_mesh(const std::string &name);
+  void reset_meshes();
+
+  void set_mesh(const std::string &name, std::shared_ptr<Mesh> sp_mesh);
+  void set_instanced_mesh(const std::string               &name,
+                          std::shared_ptr<Mesh>            sp_mesh,
+                          const std::vector<BaseInstance> &instances);
 
   void set_heightmap_geometry(const std::vector<float> &data,
                               int                       width,
                               int                       height,
                               bool                      add_skirt = true);
-  void reset_heightmap_geometry();
 
   void set_water_geometry(const std::vector<float> &data,
                           int                       width,
                           int                       height,
                           float                     exclude_below);
-  void reset_water_geometry();
 
-  void set_points(const std::vector<float> &x,
-                  const std::vector<float> &y,
-                  const std::vector<float> &h);
-  void reset_points();
-
-  void set_path(const std::vector<float> &x,
-                const std::vector<float> &y,
-                const std::vector<float> &h);
-  void reset_path();
-
-  void set_rocks(const std::vector<float> &x,
-                 const std::vector<float> &y,
-                 const std::vector<float> &h,
-                 const std::vector<float> &radius);
-  void reset_rocks();
-
-  void set_trees(const std::vector<float> &x,
-                 const std::vector<float> &y,
-                 const std::vector<float> &h,
-                 const std::vector<float> &radius);
-  void reset_trees();
-
-  void set_leaves(const std::vector<float> &x,
-                  const std::vector<float> &y,
-                  const std::vector<float> &h,
-                  const std::vector<float> &radius);
-  void reset_leaves();
+  // --- Heightmap parameters
+  float get_hmap_wx() const { return hmap_wx; }
+  float get_hmap_wy() const { return hmap_wy; }
+  float get_hmap_h0() const { return hmap_h0; }
+  float get_hmap_h() const { return hmap_h; }
 
   // --- Textures
   void set_texture(const std::string          &name,
@@ -144,6 +117,19 @@ public:
                    int                         width); // RGBA 8bit
   void reset_texture(const std::string &name);
   void reset_textures();
+
+  // --- Skybox & Environment
+  bool       get_show_skybox() const { return show_skybox; }
+  void       set_show_skybox(bool show);
+  SkyboxMode get_skybox_mode() const { return skybox_mode; }
+  void       set_skybox_mode(SkyboxMode mode);
+  glm::vec3  get_skybox_color() const { return skybox_color; }
+  void       set_skybox_color(const glm::vec3 &color);
+  float      get_skybox_rotation() const { return skybox_rotation; }
+  void       set_skybox_rotation(float rotation_rad);
+  bool       get_fog_match_skybox() const { return fog_match_skybox; }
+  void       set_fog_match_skybox(bool match);
+  void       set_skybox_image(const std::vector<uint8_t> &data, int width);
 
 protected:
   // --- Geometry
@@ -160,6 +146,7 @@ protected:
   void render_scene_render_3d();
   void render_ui_render_2d();
   void render_ui_render_3d();
+  void render_skybox(const glm::mat4 &view, const glm::mat4 &projection);
   void render_depth_map(const glm::mat4 &model,
                         const glm::mat4 &view,
                         const glm::mat4 &projection);
@@ -233,16 +220,6 @@ private:
 
   // --- Rendering parameters
 
-  // Scene components visibility
-  bool render_plane = true;
-  bool render_points = true;
-  bool render_path = true;
-  bool render_hmap = true;
-  bool render_rocks = true;
-  bool render_trees = true;
-  bool render_water = true;
-  bool render_leaves = true;
-
   // Normals
   bool  normal_visualization = false;
   float normal_map_scaling = 1.f;
@@ -285,9 +262,9 @@ private:
   float waves_speed = 0.2f;
 
   // --- Environmental effects
-  bool      add_fog = false;
+  bool      add_fog = true;
   glm::vec3 fog_color = glm::vec3(1.f, 1.f, 1.f);
-  float     fog_density = 50.0f;
+  float     fog_density = 1.5f;
   float     fog_height = 0.1f;
   bool      add_atmospheric_scattering = false;
   float     scattering_density = 0.1f;
@@ -295,6 +272,13 @@ private:
   glm::vec3 mie_color = glm::vec3(1.0f, 0.8f, 0.7f);      // whitish/yellowish
   float     fog_strength = 0.5f;
   float     fog_scattering_ratio = 0.7f;
+
+  // --- Skybox
+  bool       show_skybox = true;
+  SkyboxMode skybox_mode = SkyboxMode::SKYBOX_IMAGE;
+  glm::vec3  skybox_color = glm::vec3(0.53f, 0.81f, 0.92f); // sky blue
+  float      skybox_rotation = 0.f;
+  bool       fog_match_skybox = true;
 
   // --- 2D Viewer
   Viewer2DSettings viewer2d_settings;
@@ -311,16 +295,13 @@ private:
   Camera camera;
   Light  light;
 
-  Mesh                        plane;
-  Mesh                        hmap;
-  Mesh                        water_mesh;
-  Mesh                        path_mesh;
-  InstancedMesh<BaseInstance> points_instanced_mesh;
-  InstancedMesh<BaseInstance> trees_instanced_mesh;
-  InstancedMesh<BaseInstance> rocks_instanced_mesh;
-  InstancedMesh<BaseInstance> leaves_instanced_mesh;
-
+  std::unique_ptr<MeshManager>    sp_mesh_manager;
   std::unique_ptr<TextureManager> sp_texture_manager;
+
+  // --- Pending uploads (if set before initializeGL)
+  std::vector<uint8_t> pending_skybox_image;
+  int                  pending_skybox_width = 0;
+  std::unordered_map<std::string, std::pair<std::vector<uint8_t>, int>> pending_textures;
 
   // --- ImGUI
   ImGuiContext *imgui_context = nullptr;

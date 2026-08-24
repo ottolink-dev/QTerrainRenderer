@@ -1,5 +1,4 @@
-/* Copyright (c) 2025 Otto Link. Distributed under the terms of the GNU General Public
-   License. The full license is in the file LICENSE, distributed with this software. */
+#include <filesystem>
 #include <random>
 
 #include <QApplication>
@@ -29,16 +28,51 @@ int main(int argc, char *argv[])
     int                  width, height;
     std::vector<uint8_t> data = qtr::load_png_as_8bit_rgba("texture.png", width, height);
 
-    renderer->set_texture(QTR_TEX_ALBEDO, data, width);
-    // renderer->reset_texture(QTR_TEX_ALBEDO);
+    renderer->set_texture(qtr::keys::tex::albedo, data, width);
+    // renderer->reset_texture(qtr::keys::tex::albedo);
   }
 
   {
     int                  width, height;
     std::vector<uint8_t> data = qtr::load_png_as_8bit_rgba("nmap2.png", width, height);
 
-    renderer->set_texture(QTR_TEX_NORMAL, data, width);
-    renderer->reset_texture(QTR_TEX_NORMAL);
+    renderer->set_texture(qtr::keys::tex::normal, data, width);
+    renderer->reset_texture(qtr::keys::tex::normal);
+  }
+
+  // skybox
+  {
+    int         width, height;
+    std::string sky_filename = "DaySkyHDRI057B_1K_TONEMAPPED.jpg";
+    std::string sky_path = sky_filename;
+
+    const std::vector<std::string> search_dirs = {".",
+                                                  "data",
+                                                  "../data",
+                                                  "../../data",
+                                                  "QTerrainRenderer/data",
+                                                  "../QTerrainRenderer/data",
+                                                  "../../QTerrainRenderer/data"};
+
+    for (const auto &dir : search_dirs)
+    {
+      std::string candidate = dir + "/" + sky_filename;
+      if (std::filesystem::exists(candidate))
+      {
+        sky_path = candidate;
+        break;
+      }
+    }
+
+    try
+    {
+      std::vector<uint8_t> data = qtr::load_image_as_8bit_rgba(sky_path, width, height);
+      renderer->set_skybox_image(data, width);
+    }
+    catch (const std::exception &e)
+    {
+      qtr::Logger::log()->warn("Could not load skybox image {}: {}", sky_path, e.what());
+    }
   }
 
   {
@@ -48,25 +82,24 @@ int main(int argc, char *argv[])
   }
 
   {
-    std::vector<float> x, y, h;
-    x = {0.05f, 0.1f, 0.2f, 0.7f, 0.8f};
-    y = {0.2f, 0.2f, 0.4f, 0.7f, 0.8f};
-    h = {0.8f, 0.2f, 1.f, 0.5f, 0.7f};
+    std::vector<float> x = {0.05f, 0.1f, 0.2f, 0.7f, 0.8f};
+    std::vector<float> y = {0.2f, 0.2f, 0.4f, 0.7f, 0.8f};
+    std::vector<float> h = {0.8f, 0.2f, 1.f, 0.5f, 0.7f};
 
-    renderer->set_points(x, y, h);
-    renderer->reset_points();
+    qtr::set_points(*renderer, x, y, h);
+    renderer->reset_mesh(qtr::keys::mesh::points);
   }
 
   {
-    std::vector<float> x, y, h;
-    x = {0.05f, 0.1f, 0.2f, 0.7f, 0.8f};
-    y = {0.2f, 0.2f, 0.4f, 0.7f, 0.8f};
-    h = {0.8f, 0.2f, 1.f, 0.5f, 0.7f};
+    std::vector<float> x = {0.05f, 0.1f, 0.2f, 0.7f, 0.8f};
+    std::vector<float> y = {0.2f, 0.2f, 0.4f, 0.7f, 0.8f};
+    std::vector<float> h = {0.8f, 0.2f, 1.f, 0.5f, 0.7f};
 
-    renderer->set_path(x, y, h);
-    renderer->reset_path();
+    qtr::set_path(*renderer, x, y, h);
+    renderer->reset_mesh(qtr::keys::mesh::path);
   }
 
+  if (false)
   {
     size_t             n = 50000;
     std::vector<float> x, y, h, r;
@@ -79,9 +112,9 @@ int main(int argc, char *argv[])
       r.push_back(0.001f * (float)std::rand() / RAND_MAX);
     }
 
-    // renderer->set_trees(x, y, h, r);
-    // renderer->set_leaves(x, y, h, r);
-    // renderer->reset_leaves();
+    qtr::set_trees(*renderer, x, y, h, r);
+    qtr::set_leaves(*renderer, x, y, h, r);
+    renderer->reset_mesh(qtr::keys::mesh::leaves);
   }
 
   return app.exec();

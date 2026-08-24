@@ -79,6 +79,13 @@ uniform bool  add_fog;
 uniform vec3  fog_color;
 uniform float fog_density;
 uniform float fog_height;
+uniform bool  fog_match_skybox;
+
+// --- Skybox context for horizon matching
+uniform int   skybox_mode;
+uniform vec3  skybox_color;
+uniform float skybox_rotation;
+uniform bool  has_skybox_texture;
 
 // --- Atmospheric scattering
 uniform bool  add_atmospheric_scattering;
@@ -98,6 +105,7 @@ uniform sampler2D texture_hmap;
 uniform sampler2D texture_normal;
 uniform sampler2D texture_shadow_map;
 uniform sampler2D texture_depth;
+uniform sampler2D texture_skybox;
 
 // === Utility Functions
 
@@ -245,19 +253,6 @@ vec3 tonemap_ACES(vec3 x)
   return (x * (a * x + b)) / (x * (c * x + d) + e);
 }
 
-// https://www.shadertoy.com/view/3lBXR3
-vec3 turbo(float t)
-{
-  const vec3 c0 = vec3(0.1140890109226559, 0.06288340699912215, 0.2248337216805064);
-  const vec3 c1 = vec3(6.716419496985708, 3.182286745507602, 7.571581586103393);
-  const vec3 c2 = vec3(-66.09402360453038, -4.9279827041226, -10.09439367561635);
-  const vec3 c3 = vec3(228.7660791526501, 25.04986699771073, -91.54105330182436);
-  const vec3 c4 = vec3(-334.8351565777451, -69.31749712757485, 288.5858850615712);
-  const vec3 c5 = vec3(218.7637218434795, 67.52150567819112, -305.2045772184957);
-  const vec3 c6 = vec3(-52.88903478218835, -21.54527364654712, 110.5174647748972);
-  return c0 + t * (c1 + t * (c2 + t * (c3 + t * (c4 + t * (c5 + t * c6)))));
-}
-
 float sigmoid(float x, float width, float x0)
 {
   float v = 1.f / (1.f + exp(-(x - x0) / width));
@@ -319,12 +314,6 @@ float gabor_wave_scalar(vec2 p, vec2 dir, float angle_spread_ratio, float fseed)
   return av / max(at, 1e-6); // safe normalize
 }
 
-float linearize_depth(float depth_sample)
-{
-  float z = depth_sample * 2.0 - 1.0;
-  return (2.0 * near_plane) / (far_plane + near_plane - z * (far_plane - near_plane));
-}
-
 float phase_hg(float cos_theta, float g)
 {
   float denom = 1.0 + g * g - 2.0 * g * cos_theta;
@@ -368,20 +357,6 @@ void main()
     // Remap from [-1,1] to [0,1]
     n = n * 0.5 + 0.5;
     frag_color = vec4(vec3(n.x, n.z, n.y), 1.0);
-    return;
-  }
-
-  if (false) // raw elevation
-  {
-    // float h = clamp(orginal_input_elevation(frag_pos.y), 0.0, 1.0);
-    // frag_color = vec4(turbo(h), 1.0);
-    // return;
-  }
-
-  if (false) // raw depth
-  {
-    float raw_depth = texture(texture_depth, gl_FragCoord.xy / screen_size).r;
-    frag_color = vec4(turbo(raw_depth), 1.0);
     return;
   }
 
@@ -469,44 +444,90 @@ void main()
   spec *= (1.0 - shadow);
 
   // apply shadow
-  if (true)
+  float diff_m = min(diff, 1.0 - shadow);
+  diff_m = 1.0 - shadow_strength +
+           shadow_strength * smoothstep(1.0 - shadow_strength, 1.0, diff_m);
+
+  vec3 diffuse = color * diff_m;
+  vec3 specular = spec_strength * spec * vec3(1.0);
+  vec3 ambient = 0.2 * color;
+  vec3 result = ambient + diffuse + specular;
+
+  if (add_ambiant_occlusion)
   {
-    float diff_m = min(diff, 1.0 - shadow);
-    diff_m = 1.0 - shadow_strength +
-             shadow_strength * smoothstep(1.0 - shadow_strength, 1.0, diff_m);
-
-    vec3 diffuse = color * diff_m;
-    vec3 specular = spec_strength * spec * vec3(1.0);
-    vec3 ambient = 0.2 * color;
-    vec3 result = ambient + diffuse + specular;
-
-    if (add_ambiant_occlusion)
-    {
-      float ao = compute_hbao(frag_uv, texture_hmap, 16, 8, ambiant_occlusion_radius);
-      result *= pow(ao, 0.5f);
-    }
-
-    frag_color = vec4(result, alpha);
+    float ao = compute_hbao(frag_uv, texture_hmap, 16, 8, ambiant_occlusion_radius);
+    result *= pow(ao, 0.5f);
   }
+
+  frag_color = vec4(result, alpha);
+
+  // --- FOG & ATMOSPHERE COLOR RESOLUTION
+  vec3 effective_fog_color = fog_color;
+  if (fog_match_skybox)
+  {
+    if (skybox_mode == 1 && has_skybox_texture)
+    {
+      vec3  ray_dir = normalize(frag_pos - camera_pos);
+      float c = cos(skybox_rotation);
+      float s = sin(skybox_rotation);
+      mat3  rot_y = mat3(c, 0.0, -s, 0.0, 1.0, 0.0, s, 0.0, c);
+      vec3  h_dir = rot_y * normalize(vec3(ray_dir.x, 0.0, ray_dir.z));
+      float u = atan(h_dir.z, h_dir.x) / (2.0 * 3.14159265358979323846) + 0.5;
+      effective_fog_color = texture(texture_skybox, vec2(u, 0.5)).rgb;
+    }
+    else
+    {
+      effective_fog_color = skybox_color;
+    }
+  }
+
+  // Match gamma correction of the rest of the scene / skybox
+  effective_fog_color.x = pow(max(effective_fog_color.x, 0.0), 1.0 / gamma_correction);
+  effective_fog_color.y = pow(max(effective_fog_color.y, 0.0), 1.0 / gamma_correction);
+  effective_fog_color.z = pow(max(effective_fog_color.z, 0.0), 1.0 / gamma_correction);
 
   // --- FOG
 
   if (add_fog)
   {
-    if (frag_pos.y > 0.0)
+    float dist = length(frag_pos - camera_pos);
+
+    // Volumetric height fog: integrate exponential falloff along ray from camera to
+    // fragment
+    float h0 = max(camera_pos.y, 0.0);
+    float h1 = max(frag_pos.y, 0.0);
+    float h_scale = max(fog_height, 0.001);
+
+    float delta_h = (h1 - h0) / h_scale;
+    float h_factor;
+    if (abs(delta_h) > 1e-3)
+      h_factor = (exp(-h0 / h_scale) - exp(-h1 / h_scale)) / delta_h;
+    else
+      h_factor = exp(-0.5 * (h0 + h1) / h_scale);
+
+    // Below ground (y <= 0), fog is at full density (h_factor = 1.0)
+    float below_ground_dist = 0.0;
+    if (frag_pos.y < 0.0 || camera_pos.y < 0.0)
     {
-      // fetch depth
-      float depth_sample = texture(texture_depth, gl_FragCoord.xy / screen_size).r;
-
-      // convert to view-space depth
-      float view_depth = linearize_depth(depth_sample);
-      float fog_factor = 1.0 - exp(-view_depth * fog_density);
-
-      fog_factor *= exp(-frag_pos.y / fog_height);
-      fog_factor = clamp(fog_factor, 0.0, 1.0);
-
-      frag_color.xyz = mix(frag_color.xyz, fog_color, fog_factor);
+      float total_dy = abs(frag_pos.y - camera_pos.y);
+      if (total_dy > 1e-5)
+      {
+        float frac_below = clamp((-min(camera_pos.y, 0.0) - min(frag_pos.y, 0.0)) /
+                                     total_dy,
+                                 0.0,
+                                 1.0);
+        below_ground_dist = dist * frac_below;
+      }
+      else if (frag_pos.y < 0.0)
+      {
+        below_ground_dist = dist;
+      }
     }
+
+    float optical_depth = (dist * h_factor + below_ground_dist) * (fog_density * 0.05);
+    float fog_factor = clamp(1.0 - exp(-optical_depth), 0.0, 1.0);
+
+    frag_color.xyz = mix(frag_color.xyz, effective_fog_color, fog_factor);
   }
 
   // --- ATMOSPHERIC SCATTERING
@@ -516,8 +537,6 @@ void main()
     int   num_steps = 32;
     vec3  light_color = vec3(1.0, 1.0, 1.0);
     float hg_g = 0.7;
-    float rayleigh_height = 0.4;
-    float mie_height = 0.1;
 
     // Ray direction (from camera to fragment)
     vec3  ray_dir = normalize(frag_pos - camera_pos);
@@ -530,12 +549,15 @@ void main()
     vec3 sample_pos = camera_pos;
     vec3 scattering = vec3(0.0);
 
+    // Modulate scattering colors with effective horizon fog color if matching skybox
+    vec3 eff_rayleigh = fog_match_skybox ? mix(rayleigh_color, effective_fog_color, 0.7)
+                                         : rayleigh_color;
+    vec3 eff_mie = fog_match_skybox ? mix(mie_color, effective_fog_color, 0.4)
+                                    : mie_color;
+
     for (int i = 0; i < num_steps; i++)
     {
       sample_pos += step_vec;
-
-      if (sample_pos.y < 0.0)
-        continue;
 
       // simple exponential fog
       float dist = length(sample_pos - camera_pos);
@@ -556,24 +578,14 @@ void main()
       // soft cap for Mie scattering
       pm = pm / (1.0 + pm);
 
-      if (false)
-      {
-        float rayleigh_factor = exp(-sample_pos.y / rayleigh_height);
-        float mie_factor = exp(-sample_pos.y / mie_height);
+      // scale by densities
+      vec3 phase_color = eff_rayleigh * pr + eff_mie * pm;
 
-        pr *= rayleigh_factor;
-        pm *= mie_factor;
-      }
-
-      // scale by densities (tweak or make altitude-dependent)
-      vec3 phase_color = rayleigh_color * pr + mie_color * pm;
-
-      // float phase = max(dot(normalize(light_dir), -ray_dir), 0.0); // simple isotropic
       scattering += density * light_color * phase_color * (1.0 - lit);
     }
 
     // fog color with scattering
-    vec3 fogged = mix(fog_color, scattering, fog_scattering_ratio);
+    vec3 fogged = mix(effective_fog_color, scattering, fog_scattering_ratio);
 
     frag_color.xyz = mix(frag_color.xyz,
                          fogged,

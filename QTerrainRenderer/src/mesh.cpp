@@ -10,12 +10,51 @@ Mesh::Mesh() {}
 
 Mesh::~Mesh() { this->destroy(); }
 
+Mesh::Mesh(Mesh &&other) noexcept
+    : vao(other.vao), vbo(other.vbo), ebo(other.ebo), vertex_count(other.vertex_count),
+      index_count(other.index_count), has_indices(other.has_indices),
+      vertices(std::move(other.vertices)), indices(std::move(other.indices)),
+      vertex_map(std::move(other.vertex_map))
+{
+  other.vao = 0;
+  other.vbo = 0;
+  other.ebo = 0;
+  other.vertex_count = 0;
+  other.index_count = 0;
+  other.has_indices = false;
+}
+
+Mesh &Mesh::operator=(Mesh &&other) noexcept
+{
+  if (this != &other)
+  {
+    this->destroy();
+    this->vao = other.vao;
+    this->vbo = other.vbo;
+    this->ebo = other.ebo;
+    this->vertex_count = other.vertex_count;
+    this->index_count = other.index_count;
+    this->has_indices = other.has_indices;
+    this->vertices = std::move(other.vertices);
+    this->indices = std::move(other.indices);
+    this->vertex_map = std::move(other.vertex_map);
+
+    other.vao = 0;
+    other.vbo = 0;
+    other.ebo = 0;
+    other.vertex_count = 0;
+    other.index_count = 0;
+    other.has_indices = false;
+  }
+  return *this;
+}
+
 void Mesh::create(std::vector<Vertex> vertices_in,
                   std::vector<uint>   indices_in,
                   bool                store_cpu_copy,
                   std::vector<int>    vertex_map_in)
 {
-  this->initializeOpenGLFunctions();
+  bool ok = this->initializeOpenGLFunctions();
   this->destroy();
 
   this->vertex_count = vertices_in.size();

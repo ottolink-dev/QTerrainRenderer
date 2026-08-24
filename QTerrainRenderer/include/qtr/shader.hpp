@@ -14,6 +14,12 @@ public:
   Shader() = default;
   ~Shader();
 
+  // Rule of 5: non-copyable, movable
+  Shader(const Shader &) = delete;
+  Shader &operator=(const Shader &) = delete;
+  Shader(Shader &&) noexcept = default;
+  Shader &operator=(Shader &&) noexcept = default;
+
   bool from_code(const std::string &vertex_code, const std::string &fragment_code);
   bool from_file(const std::string &vertex_path, const std::string &fragment_path);
 
@@ -72,6 +78,14 @@ static const std::string viewer2d_cmap_vertex =
 
 static const std::string viewer2d_cmap_frag =
 #include "shaders/viewer2d_cmap.frag"
+    ;
+
+static const std::string skybox_vertex =
+#include "shaders/skybox.vert"
+    ;
+
+static const std::string skybox_frag =
+#include "shaders/skybox.frag"
     ;
 
 } // namespace qtr

@@ -5,6 +5,11 @@
 
 #include <QSize>
 
+#ifndef QTR_QPUTENV_QT_LOGGING_RULES
+#define QTR_QPUTENV_QT_LOGGING_RULES                                                     \
+  "qt.widgets.gestures.debug=false;qt.qpa.*=false;qt.pointer.*=false"
+#endif
+
 #define QTR_CONFIG qtr::Config::get_config()
 
 namespace qtr
