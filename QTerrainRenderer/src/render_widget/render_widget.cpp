@@ -446,17 +446,32 @@ void RenderWidget::reset_texture(const std::string &name)
 {
   qtr::Logger::log()->trace("RenderWidget::reset_texture: {}", name);
 
+  if (name == keys::tex::normal)
+    this->user_set_normal_map = false;
+
   this->makeCurrent();
   if (this->sp_texture_manager->get(name))
     this->sp_texture_manager->get(name)->destroy();
   this->need_update = true;
   this->doneCurrent();
+
+  // If user reset explicit normal map but heightmap exists and auto_generate is on,
+  // re-generate it
+  if (name == keys::tex::normal && this->auto_generate_normal_map &&
+      !this->current_heightmap_data.empty())
+  {
+    this->set_heightmap_geometry(this->current_heightmap_data,
+                                 this->current_width,
+                                 this->current_height,
+                                 this->current_add_skirt_state);
+  }
 }
 
 void RenderWidget::reset_textures()
 {
   qtr::Logger::log()->trace("RenderWidget::reset_textures");
 
+  this->user_set_normal_map = false;
   this->makeCurrent();
 
   // /!\ do not reset the depth maps
@@ -588,32 +603,128 @@ void RenderWidget::set_common_uniforms(QOpenGLShaderProgram &shader,
   shader.setUniformValue("spec_strength", 0.f);
 }
 
+void RenderWidget::set_hmap_tessellation(bool enabled)
+{
+  if (this->hmap_tessellation == enabled)
+    return;
+  this->hmap_tessellation = enabled;
+  if (!this->current_heightmap_data.empty())
+  {
+    this->set_heightmap_geometry(this->current_heightmap_data,
+                                 this->current_width,
+                                 this->current_height,
+                                 this->current_add_skirt_state);
+  }
+}
+
+void RenderWidget::set_hmap_tessellation_max_error(float error)
+{
+  if (this->hmap_tessellation_max_error == error)
+    return;
+  this->hmap_tessellation_max_error = error;
+  if (this->hmap_tessellation && !this->current_heightmap_data.empty())
+  {
+    this->set_heightmap_geometry(this->current_heightmap_data,
+                                 this->current_width,
+                                 this->current_height,
+                                 this->current_add_skirt_state);
+  }
+}
+
+void RenderWidget::set_hmap_tessellation_max_triangles(int max_triangles)
+{
+  if (this->hmap_tessellation_max_triangles == max_triangles)
+    return;
+  this->hmap_tessellation_max_triangles = max_triangles;
+  if (this->hmap_tessellation && !this->current_heightmap_data.empty())
+  {
+    this->set_heightmap_geometry(this->current_heightmap_data,
+                                 this->current_width,
+                                 this->current_height,
+                                 this->current_add_skirt_state);
+  }
+}
+
+void RenderWidget::set_hmap_tessellation_max_points(int max_points)
+{
+  if (this->hmap_tessellation_max_points == max_points)
+    return;
+  this->hmap_tessellation_max_points = max_points;
+  if (this->hmap_tessellation && !this->current_heightmap_data.empty())
+  {
+    this->set_heightmap_geometry(this->current_heightmap_data,
+                                 this->current_width,
+                                 this->current_height,
+                                 this->current_add_skirt_state);
+  }
+}
+
+void RenderWidget::set_auto_generate_normal_map(bool auto_gen)
+{
+  if (this->auto_generate_normal_map == auto_gen)
+    return;
+  this->auto_generate_normal_map = auto_gen;
+  if (!this->current_heightmap_data.empty())
+  {
+    this->set_heightmap_geometry(this->current_heightmap_data,
+                                 this->current_width,
+                                 this->current_height,
+                                 this->current_add_skirt_state);
+  }
+}
+
 void RenderWidget::set_heightmap_geometry(const std::vector<float> &data,
                                           int                       width,
                                           int                       height,
                                           bool                      add_skirt)
 {
-  qtr::Logger::log()->trace("RenderWidget::set_heightmap_geometry");
+  qtr::Logger::log()->trace("RenderWidget::set_heightmap_geometry (tessellation={})",
+                            this->hmap_tessellation);
+
+  this->current_heightmap_data = data;
+  this->current_width = width;
+  this->current_height = height;
+  this->current_add_skirt_state = add_skirt;
 
   this->makeCurrent();
 
   const float aspect_ratio = static_cast<float>(width) / static_cast<float>(height);
   this->set_aspect_ratio(aspect_ratio);
 
-  generate_heightmap(*this->sp_mesh_manager->get_mesh(keys::mesh::hmap),
-                     data,
-                     width,
-                     height,
-                     0.f,
-                     this->hmap_h0,
-                     0.f,
-                     this->hmap_wx,
-                     this->hmap_h,
-                     this->hmap_wy,
-                     add_skirt,
-                     /* add_level */ 0.f,
-                     /* exclude_below */ -FLT_MAX,
-                     &this->hmap_hmin);
+  if (this->hmap_tessellation)
+  {
+    generate_heightmap_tessellated(*this->sp_mesh_manager->get_mesh(keys::mesh::hmap),
+                                   data,
+                                   width,
+                                   height,
+                                   0.f,
+                                   this->hmap_h0,
+                                   0.f,
+                                   this->hmap_wx,
+                                   this->hmap_h,
+                                   this->hmap_wy,
+                                   this->hmap_tessellation_max_error,
+                                   this->hmap_tessellation_max_triangles,
+                                   this->hmap_tessellation_max_points,
+                                   &this->hmap_hmin);
+  }
+  else
+  {
+    generate_heightmap(*this->sp_mesh_manager->get_mesh(keys::mesh::hmap),
+                       data,
+                       width,
+                       height,
+                       0.f,
+                       this->hmap_h0,
+                       0.f,
+                       this->hmap_wx,
+                       this->hmap_h,
+                       this->hmap_wy,
+                       add_skirt,
+                       /* add_level */ 0.f,
+                       /* exclude_below */ -FLT_MAX,
+                       &this->hmap_hmin);
+  }
 
   // regenerate plane (keep the plane square, use hmap_wx for both
   // directions)
@@ -633,6 +744,54 @@ void RenderWidget::set_heightmap_geometry(const std::vector<float> &data,
   // additional this->hmap_h scaling for OpenGL)
   if (this->sp_texture_manager->get(keys::tex::hmap))
     this->sp_texture_manager->get(keys::tex::hmap)->from_float_vector(data, width);
+
+  // Generate detail normal map on CPU if auto_generate_normal_map is enabled and user
+  // hasn't explicitly set one
+  if (this->auto_generate_normal_map && !this->user_set_normal_map && width > 1 &&
+      height > 1 && this->sp_texture_manager->get(keys::tex::normal))
+  {
+    std::vector<uint8_t> nmap_rgba(static_cast<size_t>(width) * height * 4);
+    const float          dx_inv = static_cast<float>(width - 1);
+    const float          dy_inv = static_cast<float>(height - 1);
+
+#pragma omp parallel for collapse(2) if (height > 64)
+    for (int j = 0; j < height; ++j)
+    {
+      for (int i = 0; i < width; ++i)
+      {
+        int i_prev = (i > 0) ? (i - 1) : 0;
+        int i_next = (i + 1 < width) ? (i + 1) : (width - 1);
+        int j_prev = (j > 0) ? (j - 1) : 0;
+        int j_next = (j + 1 < height) ? (j + 1) : (height - 1);
+
+        float h_l = data[j * width + i_prev];
+        float h_r = data[j * width + i_next];
+        float h_u = data[j_prev * width + i];
+        float h_d = data[j_next * width + i];
+
+        float du = (h_r - h_l) * 0.5f *
+                   (i_next > i_prev ? (dx_inv / float(i_next - i_prev)) : dx_inv);
+        float dv = (h_d - h_u) * 0.5f *
+                   (j_next > j_prev ? (dy_inv / float(j_next - j_prev)) : dy_inv);
+
+        glm::vec3 n(-du, -dv, 1.0f);
+        n = glm::normalize(n);
+
+        size_t idx = (static_cast<size_t>(j) * width + i) * 4;
+        nmap_rgba[idx + 0] = static_cast<uint8_t>(
+            std::clamp(0.5f * (n.x + 1.0f) * 255.0f, 0.0f, 255.0f));
+        nmap_rgba[idx + 1] = static_cast<uint8_t>(
+            std::clamp(0.5f * (n.y + 1.0f) * 255.0f, 0.0f, 255.0f));
+        nmap_rgba[idx + 2] = static_cast<uint8_t>(
+            std::clamp(0.5f * (n.z + 1.0f) * 255.0f, 0.0f, 255.0f));
+        nmap_rgba[idx + 3] = 255;
+      }
+    }
+
+    this->sp_texture_manager->get(keys::tex::normal)
+        ->from_image_8bit_rgba(nmap_rgba, width);
+  }
+
   this->need_update = true;
   this->doneCurrent();
 }
@@ -675,6 +834,9 @@ void RenderWidget::set_texture(const std::string          &name,
                                int                         width)
 {
   qtr::Logger::log()->trace("RenderWidget::set_texture: {}", name);
+
+  if (name == keys::tex::normal)
+    this->user_set_normal_map = true;
 
   this->need_update = true;
 

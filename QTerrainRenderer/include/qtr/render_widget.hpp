@@ -111,6 +111,21 @@ public:
   float get_hmap_h0() const { return hmap_h0; }
   float get_hmap_h() const { return hmap_h; }
 
+  bool  get_hmap_tessellation() const { return hmap_tessellation; }
+  void  set_hmap_tessellation(bool enabled);
+  float get_hmap_tessellation_max_error() const { return hmap_tessellation_max_error; }
+  void  set_hmap_tessellation_max_error(float error);
+  int   get_hmap_tessellation_max_triangles() const
+  {
+    return hmap_tessellation_max_triangles;
+  }
+  void set_hmap_tessellation_max_triangles(int max_triangles);
+  int  get_hmap_tessellation_max_points() const { return hmap_tessellation_max_points; }
+  void set_hmap_tessellation_max_points(int max_points);
+
+  bool get_auto_generate_normal_map() const { return auto_generate_normal_map; }
+  void set_auto_generate_normal_map(bool auto_gen);
+
   // --- Textures
   void set_texture(const std::string          &name,
                    const std::vector<uint8_t> &data,
@@ -207,20 +222,27 @@ private:
   float     light_distance = 10.f;
 
   // --- Heightmap
-  float scale_h = 1.0f;
-  float hmap_h0 = 0.f;   // hmap zero level
-  float hmap_hmin = 0.f; // hmap min level
-  float hmap_hmax = 0.f; // hmap max level
-  float hmap_wx = 2.f;   // width of sides
-  float hmap_wy = 2.f;   // width of sides
-  float hmap_h = 0.4f;   // elevations scaling (at input)
-  int   current_width = 0;
-  int   current_height = 0;
-  bool  current_add_skirt_state = true;
+  float              scale_h = 1.0f;
+  float              hmap_h0 = 0.f;   // hmap zero level
+  float              hmap_hmin = 0.f; // hmap min level
+  float              hmap_hmax = 0.f; // hmap max level
+  float              hmap_wx = 2.f;   // width of sides
+  float              hmap_wy = 2.f;   // width of sides
+  float              hmap_h = 0.4f;   // elevations scaling (at input)
+  int                current_width = 0;
+  int                current_height = 0;
+  bool               current_add_skirt_state = true;
+  std::vector<float> current_heightmap_data;
 
-  // --- Rendering parameters
+  // Tessellation
+  bool  hmap_tessellation = false;
+  float hmap_tessellation_max_error = 0.001f;
+  int   hmap_tessellation_max_triangles = 0;
+  int   hmap_tessellation_max_points = 0;
 
   // Normals
+  bool  auto_generate_normal_map = true;
+  bool  user_set_normal_map = false;
   bool  normal_visualization = false;
   float normal_map_scaling = 1.f;
 
