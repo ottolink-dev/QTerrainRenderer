@@ -54,7 +54,7 @@ void Mesh::create(std::vector<Vertex> vertices_in,
                   bool                store_cpu_copy,
                   std::vector<int>    vertex_map_in)
 {
-  this->initializeOpenGLFunctions();
+  bool ok = this->initializeOpenGLFunctions();
   this->destroy();
 
   this->vertex_count = vertices_in.size();
@@ -100,6 +100,14 @@ void Mesh::create(std::vector<Vertex> vertices_in,
   glVertexAttribPointer(2, 2, GL_FLOAT, GL_FALSE, stride, (void *)(6 * sizeof(float)));
 
   glBindVertexArray(0);
+
+  qtr::Logger::log()->trace(
+      "Mesh::create: init_ok={}, vao={}, vbo={}, ebo={}, vcount={}",
+      ok,
+      this->vao,
+      this->vbo,
+      this->ebo,
+      this->vertex_count);
 
   if (store_cpu_copy)
   {
