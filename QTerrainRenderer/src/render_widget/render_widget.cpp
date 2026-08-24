@@ -131,6 +131,22 @@ void RenderWidget::clear()
   this->sp_mesh_manager->destroy_all();
   this->reset_textures();
 
+  // Re-create permanent base meshes (plane and skybox cube)
+  generate_plane(*this->sp_mesh_manager->get_mesh(keys::mesh::plane),
+                 0.f,
+                 -1e-3f,
+                 0.f,
+                 2000.f * this->hmap_wx,
+                 2000.f * this->hmap_wx);
+
+  generate_cube(*this->sp_mesh_manager->get_mesh(keys::mesh::skybox),
+                0.f,
+                0.f,
+                0.f,
+                2.f,
+                2.f,
+                2.f);
+
   this->need_update = true;
 
   this->doneCurrent();
