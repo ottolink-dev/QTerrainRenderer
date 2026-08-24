@@ -214,6 +214,16 @@ void RenderWidget::render_skybox(const glm::mat4 &view, const glm::mat4 &project
                  this->sp_texture_manager->get(keys::tex::skybox)->is_active();
   p_shader->setUniformValue("has_skybox_texture", has_tex);
 
+  qtr::Logger::log()->trace(
+      "RenderWidget::render_skybox [{}]: mode={}, has_tex={}, tex_id={}, cube_has_data={}",
+      this->title,
+      static_cast<int>(this->skybox_mode),
+      has_tex,
+      this->sp_texture_manager->get(keys::tex::skybox)
+          ? this->sp_texture_manager->get(keys::tex::skybox)->get_id()
+          : 0,
+      skybox_drawable->has_data());
+
   if (has_tex)
   {
     this->sp_texture_manager->get(keys::tex::skybox)->bind(0);
