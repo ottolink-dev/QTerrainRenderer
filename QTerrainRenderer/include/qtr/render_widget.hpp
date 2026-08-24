@@ -298,6 +298,11 @@ private:
   std::unique_ptr<MeshManager>    sp_mesh_manager;
   std::unique_ptr<TextureManager> sp_texture_manager;
 
+  // --- Pending uploads (if set before initializeGL)
+  std::vector<uint8_t> pending_skybox_image;
+  int                  pending_skybox_width = 0;
+  std::unordered_map<std::string, std::pair<std::vector<uint8_t>, int>> pending_textures;
+
   // --- ImGUI
   ImGuiContext *imgui_context = nullptr;
 };

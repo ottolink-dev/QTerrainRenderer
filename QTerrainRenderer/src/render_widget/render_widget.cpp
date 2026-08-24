@@ -346,6 +346,33 @@ void RenderWidget::initializeGL()
     glBindFramebuffer(GL_FRAMEBUFFER, 0);
   }
 
+  // --- Pending textures (set before initializeGL)
+  if (!this->pending_skybox_image.empty() && this->pending_skybox_width > 0)
+  {
+    qtr::Logger::log()->trace(
+        "RenderWidget::initializeGL: uploading deferred skybox texture (width={})",
+        this->pending_skybox_width);
+
+    if (this->sp_texture_manager->get(keys::tex::skybox))
+      this->sp_texture_manager->get(keys::tex::skybox)
+          ->from_image_8bit_rgba(this->pending_skybox_image, this->pending_skybox_width);
+    this->pending_skybox_image.clear();
+    this->pending_skybox_width = 0;
+  }
+
+  for (auto &[name, tex_data] : this->pending_textures)
+  {
+    qtr::Logger::log()->trace(
+        "RenderWidget::initializeGL: uploading deferred texture '{}' (width={})",
+        name,
+        tex_data.second);
+
+    if (this->sp_texture_manager->get(name))
+      this->sp_texture_manager->get(name)->from_image_8bit_rgba(tex_data.first,
+                                                                tex_data.second);
+  }
+  this->pending_textures.clear();
+
   // --- ImGUI
 
   qtr::Logger::log()->trace("RenderWidget::initializeGL: setup ImGui context");
@@ -634,11 +661,23 @@ void RenderWidget::set_texture(const std::string          &name,
 {
   qtr::Logger::log()->trace("RenderWidget::set_texture: {}", name);
 
+  this->need_update = true;
+
+  if (!this->initial_gl_done)
+  {
+    qtr::Logger::log()->trace(
+        "RenderWidget::set_texture: OpenGL not initialized yet, deferring texture '{}'",
+        name);
+    this->pending_textures[name] = {data, width};
+    return;
+  }
+
   this->makeCurrent();
 
   if (this->sp_texture_manager->get(name))
     this->sp_texture_manager->get(name)->from_image_8bit_rgba(data, width);
-  this->need_update = true;
+
+  this->doneCurrent();
 }
 
 void RenderWidget::set_water_geometry(const std::vector<float> &data,
@@ -769,11 +808,23 @@ void RenderWidget::set_fog_match_skybox(bool match)
 
 void RenderWidget::set_skybox_image(const std::vector<uint8_t> &data, int width)
 {
+  qtr::Logger::log()->trace("RenderWidget::set_skybox_image: width={}", width);
+
+  this->skybox_mode = SkyboxMode::SKYBOX_IMAGE;
+  this->need_update = true;
+
+  if (!this->initial_gl_done)
+  {
+    qtr::Logger::log()->trace("RenderWidget::set_skybox_image: OpenGL not initialized "
+                              "yet, deferring skybox upload");
+    this->pending_skybox_image = data;
+    this->pending_skybox_width = width;
+    return;
+  }
+
   this->makeCurrent();
   if (this->sp_texture_manager->get(keys::tex::skybox))
     this->sp_texture_manager->get(keys::tex::skybox)->from_image_8bit_rgba(data, width);
-  this->skybox_mode = SkyboxMode::SKYBOX_IMAGE;
-  this->need_update = true;
   this->doneCurrent();
 }
 
