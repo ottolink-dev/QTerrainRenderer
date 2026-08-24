@@ -131,6 +131,9 @@ void RenderWidget::clear()
   this->sp_mesh_manager->destroy_all();
   this->reset_textures();
 
+  // reset_textures calls doneCurrent(), so re-acquire context for this widget
+  this->makeCurrent();
+
   // Re-create permanent base meshes (plane and skybox cube)
   generate_plane(*this->sp_mesh_manager->get_mesh(keys::mesh::plane),
                  0.f,
