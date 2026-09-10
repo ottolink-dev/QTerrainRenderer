@@ -6,6 +6,8 @@
 #include <QOpenGLWidget>
 #include <QTimer>
 
+#include <unordered_set>
+
 #include <glm/glm.hpp>
 #include <glm/gtc/matrix_transform.hpp>
 #include <glm/gtc/type_ptr.hpp>
@@ -37,6 +39,12 @@ enum SkyboxMode : int
 {
   SKYBOX_UNIFORM_COLOR = 0,
   SKYBOX_IMAGE = 1
+};
+
+enum class KeyboardLayout : int
+{
+  WASD = 0,
+  ZQSD = 1
 };
 
 struct Viewer2DSettings
@@ -131,6 +139,13 @@ public:
   void       set_fog_match_skybox(bool match);
   void       set_skybox_image(const std::vector<uint8_t> &data, int width);
 
+  // --- Camera controls
+  KeyboardLayout get_keyboard_layout() const { return keyboard_layout; }
+  void           set_keyboard_layout(KeyboardLayout layout);
+  float          get_camera_move_speed() const { return camera_move_speed; }
+  void           set_camera_move_speed(float speed);
+  void           process_keyboard_input(float dt);
+
 protected:
   // --- Geometry
   void set_aspect_ratio(float new_aspect_ratio);
@@ -170,6 +185,7 @@ protected:
   void     wheelEvent(QWheelEvent *e) override;
   void     keyPressEvent(QKeyEvent *e) override;
   void     keyReleaseEvent(QKeyEvent *e) override;
+  void     focusOutEvent(QFocusEvent *event) override;
 
 private:
   // --- Helpers
@@ -205,6 +221,11 @@ private:
   float     light_phi;   // azimuth
   float     light_theta; // zenith
   float     light_distance = 10.f;
+
+  // --- Keyboard navigation
+  KeyboardLayout          keyboard_layout = KeyboardLayout::WASD;
+  float                   camera_move_speed = 1.0f;
+  std::unordered_set<int> pressed_keys;
 
   // --- Heightmap
   float scale_h = 1.0f;

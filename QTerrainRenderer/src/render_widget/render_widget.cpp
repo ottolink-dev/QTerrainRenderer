@@ -595,7 +595,8 @@ void RenderWidget::set_heightmap_geometry(const std::vector<float> &data,
 {
   qtr::Logger::log()->trace("RenderWidget::set_heightmap_geometry");
 
-  this->makeCurrent();
+  if (this->initial_gl_done)
+    this->makeCurrent();
 
   const float aspect_ratio = static_cast<float>(width) / static_cast<float>(height);
   this->set_aspect_ratio(aspect_ratio);
@@ -624,6 +625,10 @@ void RenderWidget::set_heightmap_geometry(const std::vector<float> &data,
                  2000.f * this->hmap_wx,
                  2000.f * this->hmap_wx);
 
+  this->current_width = width;
+  this->current_height = height;
+  this->current_add_skirt_state = add_skirt;
+
   qtr::Logger::log()->trace("RenderWidget::set_heightmap_geometry: w x h = {} x {}",
                             width,
                             height);
@@ -631,10 +636,12 @@ void RenderWidget::set_heightmap_geometry(const std::vector<float> &data,
   // also generate the heightmap texture /!\ texture of float, scaled
   // as the input, not scaled as what the OpenGL sees (there is an
   // additional this->hmap_h scaling for OpenGL)
-  if (this->sp_texture_manager->get(keys::tex::hmap))
+  if (this->initial_gl_done && this->sp_texture_manager->get(keys::tex::hmap))
     this->sp_texture_manager->get(keys::tex::hmap)->from_float_vector(data, width);
   this->need_update = true;
-  this->doneCurrent();
+
+  if (this->initial_gl_done)
+    this->doneCurrent();
 }
 
 void RenderWidget::set_mesh(const std::string &name, std::shared_ptr<Mesh> sp_mesh)
@@ -752,14 +759,12 @@ void RenderWidget::unbind_textures() { this->sp_texture_manager->unbind(); }
 
 void RenderWidget::update_camera()
 {
+  this->process_keyboard_input(this->dt);
+
   this->camera.set_position_angles(this->distance, this->alpha_x, this->alpha_y);
 
-  glm::vec3 pan(this->pan_offset.x * cos(this->alpha_y),
-                this->pan_offset.y,
-                -this->pan_offset.x * sin(this->alpha_y));
-
-  this->camera.position += pan;
-  this->camera.target = this->target + pan;
+  this->camera.position += this->target;
+  this->camera.target = this->target;
 
   if (this->auto_rotate_camera)
   {
@@ -841,6 +846,77 @@ void RenderWidget::set_skybox_image(const std::vector<uint8_t> &data, int width)
   if (this->sp_texture_manager->get(keys::tex::skybox))
     this->sp_texture_manager->get(keys::tex::skybox)->from_image_8bit_rgba(data, width);
   this->doneCurrent();
+}
+
+void RenderWidget::set_keyboard_layout(KeyboardLayout layout)
+{
+  this->keyboard_layout = layout;
+  this->need_update = true;
+}
+
+void RenderWidget::set_camera_move_speed(float speed)
+{
+  this->camera_move_speed = std::max(0.01f, speed);
+  this->need_update = true;
+}
+
+void RenderWidget::process_keyboard_input(float delta_time)
+{
+  if (this->render_type != RenderType::RENDER_3D)
+    return;
+
+  if (this->pressed_keys.empty())
+    return;
+
+  ImGuiIO &io = this->get_imgui_io();
+  if (io.WantCaptureKeyboard)
+    return;
+
+  // determine active keys for current layout
+  int key_forward = (this->keyboard_layout == KeyboardLayout::WASD) ? Qt::Key_W
+                                                                    : Qt::Key_Z;
+  int key_backward = Qt::Key_S;
+  int key_left = (this->keyboard_layout == KeyboardLayout::WASD) ? Qt::Key_A : Qt::Key_Q;
+  int key_right = Qt::Key_D;
+  int key_up = Qt::Key_E;
+  int key_down = (this->keyboard_layout == KeyboardLayout::WASD) ? Qt::Key_Q : Qt::Key_A;
+
+  float speed = this->camera_move_speed * delta_time;
+
+  glm::vec3 forward_h(-sin(this->alpha_y), 0.f, -cos(this->alpha_y));
+  glm::vec3 right_h(cos(this->alpha_y), 0.f, -sin(this->alpha_y));
+  glm::vec3 up(0.f, 1.f, 0.f);
+
+  if (this->pressed_keys.count(key_forward) || this->pressed_keys.count(Qt::Key_Up))
+  {
+    this->target += forward_h * speed;
+    this->need_update = true;
+  }
+  if (this->pressed_keys.count(key_backward) || this->pressed_keys.count(Qt::Key_Down))
+  {
+    this->target -= forward_h * speed;
+    this->need_update = true;
+  }
+  if (this->pressed_keys.count(key_left) || this->pressed_keys.count(Qt::Key_Left))
+  {
+    this->target -= right_h * speed;
+    this->need_update = true;
+  }
+  if (this->pressed_keys.count(key_right) || this->pressed_keys.count(Qt::Key_Right))
+  {
+    this->target += right_h * speed;
+    this->need_update = true;
+  }
+  if (this->pressed_keys.count(key_up))
+  {
+    this->target += up * speed;
+    this->need_update = true;
+  }
+  if (this->pressed_keys.count(key_down))
+  {
+    this->target -= up * speed;
+    this->need_update = true;
+  }
 }
 
 } // namespace qtr

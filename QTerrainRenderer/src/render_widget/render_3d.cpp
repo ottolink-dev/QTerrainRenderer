@@ -265,6 +265,19 @@ void RenderWidget::render_ui_render_3d()
   changed |= ImGui::SliderAngle("FOV", &this->camera.fov, 10.f, 180.f);
   changed |= ImGui::Checkbox("Auto rotate cam.", &this->auto_rotate_camera);
 
+  const char *layout_names[] = {"WASD (QWERTY)", "ZQSD (AZERTY)"};
+  int         current_layout = static_cast<int>(this->keyboard_layout);
+  if (ImGui::Combo("Controls layout",
+                   &current_layout,
+                   layout_names,
+                   IM_ARRAYSIZE(layout_names)))
+  {
+    this->keyboard_layout = static_cast<KeyboardLayout>(current_layout);
+    changed = true;
+  }
+
+  changed |= ImGui::SliderFloat("Camera speed", &this->camera_move_speed, 0.1f, 10.f);
+
   if (ImGui::Button("Reset Camera"))
   {
     this->reset_camera_position();
@@ -478,6 +491,10 @@ void RenderWidget::render_ui_render_3d()
       ImGui::Text("LMB: Rotate");
       ImGui::Text("Wheel: Zoom");
       ImGui::Text("RMB: Pan");
+      if (this->keyboard_layout == KeyboardLayout::WASD)
+        ImGui::Text("WASD: Move (E/Q: Up/Down)");
+      else
+        ImGui::Text("ZQSD: Move (E/A: Up/Down)");
     }
     ImGui::End();
     ImGui::PopStyleVar(2);
@@ -503,8 +520,10 @@ void RenderWidget::render_ui_render_3d()
 
     if (ImGui::IsMouseDown(ImGuiMouseButton_Right))
     {
-      this->pan_offset.x -= io.MouseDelta.x * 0.001f * this->distance;
-      this->pan_offset.y += io.MouseDelta.y * 0.001f * this->distance;
+      glm::vec3 right_h(cos(this->alpha_y), 0.f, -sin(this->alpha_y));
+      float     factor = 0.001f * this->distance;
+      this->target -= right_h * (io.MouseDelta.x * factor);
+      this->target.y += io.MouseDelta.y * factor;
     }
 
     if (io.MouseWheel != 0.0f)
