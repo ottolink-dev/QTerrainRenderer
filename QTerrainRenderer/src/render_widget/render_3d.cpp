@@ -269,10 +269,7 @@ void RenderWidget::render_ui_render_3d()
     ImGui::Indent();
     const char *layout_names[] = {"WASD (QWERTY)", "ZQSD (AZERTY)"};
     int         current_layout = static_cast<int>(this->keyboard_layout);
-    if (ImGui::Combo("Layout",
-                     &current_layout,
-                     layout_names,
-                     IM_ARRAYSIZE(layout_names)))
+    if (ImGui::Combo("Layout", &current_layout, layout_names, IM_ARRAYSIZE(layout_names)))
     {
       this->keyboard_layout = static_cast<KeyboardLayout>(current_layout);
       changed = true;
