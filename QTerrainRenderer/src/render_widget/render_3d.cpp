@@ -263,20 +263,24 @@ void RenderWidget::render_ui_render_3d()
   changed |= ImGui::Checkbox("Wireframe", &this->wireframe_mode);
   changed |= ImGui::SliderFloat("Height scale", &this->scale_h, 0.f, 2.f);
   changed |= ImGui::SliderAngle("FOV", &this->camera.fov, 10.f, 180.f);
-  changed |= ImGui::Checkbox("Auto rotate cam.", &this->auto_rotate_camera);
-
-  const char *layout_names[] = {"WASD (QWERTY)", "ZQSD (AZERTY)"};
-  int         current_layout = static_cast<int>(this->keyboard_layout);
-  if (ImGui::Combo("Controls layout",
-                   &current_layout,
-                   layout_names,
-                   IM_ARRAYSIZE(layout_names)))
+  changed |= ImGui::Checkbox("Keyboard controls", &this->keyboard_navigation_enabled);
+  if (this->keyboard_navigation_enabled)
   {
-    this->keyboard_layout = static_cast<KeyboardLayout>(current_layout);
-    changed = true;
-  }
+    ImGui::Indent();
+    const char *layout_names[] = {"WASD (QWERTY)", "ZQSD (AZERTY)"};
+    int         current_layout = static_cast<int>(this->keyboard_layout);
+    if (ImGui::Combo("Layout",
+                     &current_layout,
+                     layout_names,
+                     IM_ARRAYSIZE(layout_names)))
+    {
+      this->keyboard_layout = static_cast<KeyboardLayout>(current_layout);
+      changed = true;
+    }
 
-  changed |= ImGui::SliderFloat("Camera speed", &this->camera_move_speed, 0.1f, 10.f);
+    changed |= ImGui::SliderFloat("Speed", &this->camera_move_speed, 0.1f, 10.f);
+    ImGui::Unindent();
+  }
 
   if (ImGui::Button("Reset Camera"))
   {
@@ -491,10 +495,13 @@ void RenderWidget::render_ui_render_3d()
       ImGui::Text("LMB: Rotate");
       ImGui::Text("Wheel: Zoom");
       ImGui::Text("RMB: Pan");
-      if (this->keyboard_layout == KeyboardLayout::WASD)
-        ImGui::Text("WASD: Move (E/Q: Up/Down)");
-      else
-        ImGui::Text("ZQSD: Move (E/A: Up/Down)");
+      if (this->keyboard_navigation_enabled)
+      {
+        if (this->keyboard_layout == KeyboardLayout::WASD)
+          ImGui::Text("WASD: Move (E/Q: Up/Down)");
+        else
+          ImGui::Text("ZQSD: Move (E/A: Up/Down)");
+      }
     }
     ImGui::End();
     ImGui::PopStyleVar(2);

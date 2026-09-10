@@ -49,6 +49,7 @@ void RenderWidget::json_from(nlohmann::json const &json)
   json_safe_get(json, "light_phi", light_phi);
   json_safe_get(json, "light_theta", light_theta);
   json_safe_get(json, "light_distance", light_distance);
+  json_safe_get(json, "keyboard_navigation_enabled", keyboard_navigation_enabled);
   int layout_val = static_cast<int>(keyboard_layout);
   json_safe_get(json, "keyboard_layout", layout_val);
   keyboard_layout = static_cast<KeyboardLayout>(layout_val);
@@ -173,6 +174,7 @@ nlohmann::json RenderWidget::json_to() const
       {"light_phi", light_phi},
       {"light_theta", light_theta},
       {"light_distance", light_distance},
+      {"keyboard_navigation_enabled", keyboard_navigation_enabled},
       {"keyboard_layout", static_cast<int>(keyboard_layout)},
       {"camera_move_speed", camera_move_speed},
 

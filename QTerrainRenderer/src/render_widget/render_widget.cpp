@@ -848,6 +848,14 @@ void RenderWidget::set_skybox_image(const std::vector<uint8_t> &data, int width)
   this->doneCurrent();
 }
 
+void RenderWidget::set_keyboard_navigation_enabled(bool enabled)
+{
+  this->keyboard_navigation_enabled = enabled;
+  if (!this->keyboard_navigation_enabled)
+    this->pressed_keys.clear();
+  this->need_update = true;
+}
+
 void RenderWidget::set_keyboard_layout(KeyboardLayout layout)
 {
   this->keyboard_layout = layout;
@@ -863,6 +871,9 @@ void RenderWidget::set_camera_move_speed(float speed)
 void RenderWidget::process_keyboard_input(float delta_time)
 {
   if (this->render_type != RenderType::RENDER_3D)
+    return;
+
+  if (!this->keyboard_navigation_enabled)
     return;
 
   if (this->pressed_keys.empty())

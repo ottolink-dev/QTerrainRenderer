@@ -31,6 +31,7 @@ public:
     bool  show_mouse_control = false;
     bool  flip_y = true;
     bool  flip_x = false;
+    bool  keyboard_navigation_enabled = false;
     int   keyboard_layout = 0;
     float camera_move_speed = 1.0f;
   } viewer3d;

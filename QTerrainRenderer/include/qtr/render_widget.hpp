@@ -140,6 +140,8 @@ public:
   void       set_skybox_image(const std::vector<uint8_t> &data, int width);
 
   // --- Camera controls
+  bool           get_keyboard_navigation_enabled() const { return keyboard_navigation_enabled; }
+  void           set_keyboard_navigation_enabled(bool enabled);
   KeyboardLayout get_keyboard_layout() const { return keyboard_layout; }
   void           set_keyboard_layout(KeyboardLayout layout);
   float          get_camera_move_speed() const { return camera_move_speed; }
@@ -223,6 +225,7 @@ private:
   float     light_distance = 10.f;
 
   // --- Keyboard navigation
+  bool                    keyboard_navigation_enabled = false;
   KeyboardLayout          keyboard_layout = KeyboardLayout::WASD;
   float                   camera_move_speed = 1.0f;
   std::unordered_set<int> pressed_keys;
