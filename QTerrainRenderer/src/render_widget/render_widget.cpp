@@ -848,6 +848,12 @@ void RenderWidget::set_skybox_image(const std::vector<uint8_t> &data, int width)
   this->doneCurrent();
 }
 
+void RenderWidget::set_show_orientation_gizmo(bool show)
+{
+  this->show_orientation_gizmo = show;
+  this->need_update = true;
+}
+
 void RenderWidget::set_keyboard_navigation_enabled(bool enabled)
 {
   this->keyboard_navigation_enabled = enabled;

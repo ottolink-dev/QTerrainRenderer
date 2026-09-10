@@ -29,6 +29,7 @@ public:
   struct Viewer3D
   {
     bool  show_mouse_control = false;
+    bool  show_orientation_gizmo = true;
     bool  flip_y = true;
     bool  flip_x = false;
     bool  keyboard_navigation_enabled = false;
