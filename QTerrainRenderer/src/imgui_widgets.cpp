@@ -65,27 +65,27 @@ bool imgui_orientation_gizmo(float        &alpha_x,
   const float pi = glm::pi<float>();
 
   // cardinal axes mapping according to issue specification:
-  // X is West, -X is East, Y is North, -Y is South, +Z is Top
-  // in OpenGL world coords: +Y is Up (Top), -Z is North, +Z is South, +X is West, -X is
-  // East
+  // X is East, -X is West, Y is North, -Y is South, +Z is Top
+  // in OpenGL world coords: +Y is Up (Top), -Z is North, +Z is South, +X is East, -X is
+  // West
   const std::array<AxisInfo, 5> axes = {
-      // +X (West)
-      AxisInfo{"W",
-               "+X (West)",
+      // +X (East)
+      AxisInfo{"E",
+               "+X (East)",
                glm::vec3(1.f, 0.f, 0.f),
                IM_COL32(235, 75, 90, 255),
                IM_COL32(140, 45, 55, 180),
                0.f,
-               -half_pi,
+               half_pi,
                true},
-      // -X (East)
-      AxisInfo{"E",
-               "-X (East)",
+      // -X (West)
+      AxisInfo{"W",
+               "-X (West)",
                glm::vec3(-1.f, 0.f, 0.f),
                IM_COL32(235, 75, 90, 255),
                IM_COL32(140, 45, 55, 180),
                0.f,
-               half_pi,
+               -half_pi,
                false},
       // +Y (North: in OpenGL, North is -Z)
       AxisInfo{"N",
