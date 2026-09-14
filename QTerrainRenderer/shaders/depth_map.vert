@@ -1,15 +1,14 @@
-R""(
 /* Copyright (c) 2025 Otto Link. Distributed under the terms of the GNU General Public
    License. The full license is in the file LICENSE, distributed with this software. */
 #version 330 core
-
 layout(location = 0) in vec3 pos;
 layout(location = 3) in vec3 instance_pos;
 layout(location = 4) in float instance_scale;
 layout(location = 5) in float instance_rot;
 layout(location = 6) in vec3 instance_color;
 
-uniform mat4 light_space_matrix;
+uniform mat4 projection;
+uniform mat4 view;
 uniform mat4 model;
 
 uniform bool has_instances;
@@ -65,6 +64,5 @@ void main()
     model_m = scale(model_m, vec3(instance_scale));
   }
 
-  gl_Position = light_space_matrix * model_m * vec4(pos, 1.0);
+  gl_Position = projection * view * model_m * vec4(pos, 1.0);
 }
-)""

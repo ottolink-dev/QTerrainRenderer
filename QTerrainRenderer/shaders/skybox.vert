@@ -1,4 +1,3 @@
-R""(
 /* Copyright (c) 2025 Otto Link. Distributed under the terms of the GNU General Public
    License. The full license is in the file LICENSE, distributed with this software. */
 #version 330 core
@@ -28,4 +27,3 @@ void main()
   // Place at far plane (z = w produces NDC depth 1.0)
   gl_Position = clip_pos.xyww;
 }
-)""

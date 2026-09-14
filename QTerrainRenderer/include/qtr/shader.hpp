@@ -32,60 +32,21 @@ private:
   std::unique_ptr<QOpenGLShaderProgram> sp_program;
 };
 
-static const std::string diffuse_basic_vertex =
-#include "shaders/diffuse_basic.vert"
-    ;
+// --- Embedded shader sources
 
-static const std::string diffuse_basic_frag =
-#include "shaders/diffuse_basic.frag"
-    ;
-
-static const std::string diffuse_phong_frag =
-#include "shaders/diffuse_phong.frag"
-    ;
-
-static const std::string diffuse_blinn_phong_frag =
-#include "shaders/diffuse_blinn_phong.frag"
-    ;
-
-static const std::string depth_map_vertex =
-#include "shaders/depth_map.vert"
-    ;
-
-static const std::string depth_map_frag =
-#include "shaders/depth_map.frag"
-    ;
-
-static const std::string shadow_map_depth_pass_vertex =
-#include "shaders/shadow_map_depth_pass.vert"
-    ;
-
-static const std::string shadow_map_depth_pass_frag =
-#include "shaders/shadow_map_depth_pass.frag"
-    ;
-
-static const std::string shadow_map_lit_pass_vertex =
-#include "shaders/shadow_map_lit_pass.vert"
-    ;
-
-static const std::string shadow_map_lit_pass_frag =
-#include "shaders/shadow_map_lit_pass.frag"
-    ;
-
-static const std::string viewer2d_cmap_vertex =
-#include "shaders/viewer2d_cmap.vert"
-    ;
-
-static const std::string viewer2d_cmap_frag =
-#include "shaders/viewer2d_cmap.frag"
-    ;
-
-static const std::string skybox_vertex =
-#include "shaders/skybox.vert"
-    ;
-
-static const std::string skybox_frag =
-#include "shaders/skybox.frag"
-    ;
+extern const std::string diffuse_basic_vertex;
+extern const std::string diffuse_basic_frag;
+extern const std::string diffuse_phong_frag;
+extern const std::string diffuse_blinn_phong_frag;
+extern const std::string depth_map_vertex;
+extern const std::string depth_map_frag;
+extern const std::string shadow_map_depth_pass_vertex;
+extern const std::string shadow_map_depth_pass_frag;
+extern const std::string shadow_map_lit_pass_vertex;
+extern const std::string shadow_map_lit_pass_frag;
+extern const std::string viewer2d_cmap_vertex;
+extern const std::string viewer2d_cmap_frag;
+extern const std::string skybox_vertex;
+extern const std::string skybox_frag;
 
 } // namespace qtr
