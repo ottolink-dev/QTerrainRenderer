@@ -22,8 +22,9 @@ add_custom_command(
   COMMAND
     ${CMAKE_COMMAND} -DSHADERS_DIR=${CMAKE_CURRENT_SOURCE_DIR}/shaders
     -DOUTPUT_FILE=${EMBEDDED_SHADERS_CPP} -P
-    ${CMAKE_SOURCE_DIR}/cmake/embed_shaders.cmake
-  DEPENDS ${QTR_SHADER_FILES} ${CMAKE_SOURCE_DIR}/cmake/embed_shaders.cmake
+    ${CMAKE_CURRENT_SOURCE_DIR}/../cmake/embed_shaders.cmake
+  DEPENDS ${QTR_SHADER_FILES}
+          ${CMAKE_CURRENT_SOURCE_DIR}/../cmake/embed_shaders.cmake
   COMMENT "Generating embedded shaders source"
   VERBATIM)
 
