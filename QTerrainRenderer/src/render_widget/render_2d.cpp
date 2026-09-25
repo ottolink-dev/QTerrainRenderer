@@ -101,48 +101,53 @@ void RenderWidget::render_ui_render_2d()
   // --- Overlay: FPS ---
   bool changed = false;
 
-  changed |= imgui_viewer_main_menubar(*this);
+  // no in-viewport "Viewer Type" menu bar: the host application switches the
+  // render type (set_render_type), e.g. from its own title bar
 
-  ImGui::SetNextWindowBgAlpha(0.95f);
-  ImGui::Begin("Render settings");
-
-  // --- View & Camera ---
-  ImGui::SeparatorText("View");
-
-  if (ImGui::Button("Reset view"))
+  // hidden when the host provides its own settings UI
+  if (this->show_settings_window)
   {
-    this->viewer2d_settings.zoom = 0.8f;
-    this->viewer2d_settings.offset = glm::vec2(0.f, 0.f);
+    ImGui::SetNextWindowBgAlpha(0.95f);
+    ImGui::Begin("Render settings");
 
-    this->need_update = true;
-  }
+    // --- View & Camera ---
+    ImGui::SeparatorText("View");
 
-  std::vector<std::string> cmap_labels = {"Gray", "Viridis", "Turbo", "Magma"};
+    if (ImGui::Button("Reset view"))
+    {
+      this->viewer2d_settings.zoom = 0.8f;
+      this->viewer2d_settings.offset = glm::vec2(0.f, 0.f);
 
-  int cmap_int = static_cast<int>(this->viewer2d_settings.cmap);
-  if (imgui_enum_selector("Colormap", cmap_int, cmap_labels))
-  {
-    this->viewer2d_settings.cmap = static_cast<Viewer2DSettings::Colormap>(cmap_int);
-    this->need_update = true;
-  }
+      this->need_update = true;
+    }
 
-  // --- Lighting ---
-  if (ImGui::CollapsingHeader("Lighting", ImGuiTreeNodeFlags_DefaultOpen))
-  {
-    changed |= ImGui::SliderAngle("Azimuth",
-                                  &this->viewer2d_settings.sun_azimuth,
-                                  -180.f,
-                                  180.f);
-    changed |= ImGui::SliderAngle("Zenith",
-                                  &this->viewer2d_settings.sun_zenith,
-                                  0.f,
-                                  90.f);
-    changed |= ImGui::Checkbox("Hillshading", &this->viewer2d_settings.hillshading);
-  }
+    std::vector<std::string> cmap_labels = {"Gray", "Viridis", "Turbo", "Magma"};
 
-  // --- End main window ---
-  this->need_update |= changed;
-  ImGui::End();
+    int cmap_int = static_cast<int>(this->viewer2d_settings.cmap);
+    if (imgui_enum_selector("Colormap", cmap_int, cmap_labels))
+    {
+      this->viewer2d_settings.cmap = static_cast<Viewer2DSettings::Colormap>(cmap_int);
+      this->need_update = true;
+    }
+
+    // --- Lighting ---
+    if (ImGui::CollapsingHeader("Lighting", ImGuiTreeNodeFlags_DefaultOpen))
+    {
+      changed |= ImGui::SliderAngle("Azimuth",
+                                    &this->viewer2d_settings.sun_azimuth,
+                                    -180.f,
+                                    180.f);
+      changed |= ImGui::SliderAngle("Zenith",
+                                    &this->viewer2d_settings.sun_zenith,
+                                    0.f,
+                                    90.f);
+      changed |= ImGui::Checkbox("Hillshading", &this->viewer2d_settings.hillshading);
+    }
+
+    // --- End main window ---
+    this->need_update |= changed;
+    ImGui::End();
+  } // show_settings_window
 
   // --- IO / camera control ---
   ImGuiIO &io = this->get_imgui_io();

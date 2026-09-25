@@ -3,6 +3,7 @@
 #include "qtr/windows_patch.hpp"
 
 #include <QFocusEvent>
+#include <QGuiApplication>
 #include <QKeyEvent>
 #include <QMouseEvent>
 
@@ -45,9 +46,28 @@ void RenderWidget::mouseReleaseEvent(QMouseEvent *e)
 
 void RenderWidget::mouseMoveEvent(QMouseEvent *e)
 {
-  this->get_imgui_io().MousePos = ImVec2(float(e->position().x()),
-                                         float(e->position().y()));
+  ImGuiIO &io = this->get_imgui_io();
+  io.MousePos = ImVec2(float(e->position().x()), float(e->position().y()));
+
+  // Follow the buttons actually held. A press can reach this widget without
+  // its release (a child overlay handling only the release, a popup closing
+  // on it...), and a button left "down" here turns every later hover into a
+  // camera drag.
+  const Qt::MouseButtons held = e->buttons();
+  io.MouseDown[0] = io.MouseDown[0] && (held & Qt::LeftButton);
+  io.MouseDown[1] = io.MouseDown[1] && (held & Qt::RightButton);
+  io.MouseDown[2] = io.MouseDown[2] && (held & Qt::MiddleButton);
+
   this->need_update = true;
+}
+
+void RenderWidget::leaveEvent(QEvent *event)
+{
+  // the pointer left without a grab, so no button is held over the view
+  ImGuiIO &io = this->get_imgui_io();
+  if (!QGuiApplication::mouseButtons())
+    io.MouseDown[0] = io.MouseDown[1] = io.MouseDown[2] = false;
+  QOpenGLWidget::leaveEvent(event);
 }
 
 void RenderWidget::wheelEvent(QWheelEvent *e)

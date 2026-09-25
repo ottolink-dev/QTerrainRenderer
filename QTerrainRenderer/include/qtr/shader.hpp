@@ -48,5 +48,7 @@ extern const std::string viewer2d_cmap_vertex;
 extern const std::string viewer2d_cmap_frag;
 extern const std::string skybox_vertex;
 extern const std::string skybox_frag;
+extern const std::string void_grid_vertex;
+extern const std::string void_grid_frag;
 
 } // namespace qtr

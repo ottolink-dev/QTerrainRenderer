@@ -92,6 +92,11 @@ void RenderWidget::json_from(nlohmann::json const &json)
   // Shadows
   json_safe_get(json, "bypass_shadow_map", bypass_shadow_map);
   json_safe_get(json, "shadow_strength", shadow_strength);
+  {
+    int res = this->shadow_map_resolution;
+    json_safe_get(json, "shadow_map_resolution", res);
+    this->set_shadow_map_resolution(res);
+  }
 
   // Ambient occlusion
   json_safe_get(json, "add_ambiant_occlusion", add_ambiant_occlusion);
@@ -125,6 +130,7 @@ void RenderWidget::json_from(nlohmann::json const &json)
   // Skybox
   json_safe_get(json, "show_skybox", show_skybox);
   json_safe_get(json, "skybox_mode", skybox_mode);
+  json_safe_get(json, "background_mode", background_mode);
   json_safe_get(json, "skybox_color", skybox_color);
   json_safe_get(json, "skybox_rotation", skybox_rotation);
 
@@ -208,6 +214,7 @@ nlohmann::json RenderWidget::json_to() const
       // Shadows
       {"bypass_shadow_map", bypass_shadow_map},
       {"shadow_strength", shadow_strength},
+      {"shadow_map_resolution", shadow_map_resolution},
 
       // Ambient occlusion
       {"add_ambiant_occlusion", add_ambiant_occlusion},
@@ -241,6 +248,7 @@ nlohmann::json RenderWidget::json_to() const
       // Skybox
       {"show_skybox", show_skybox},
       {"skybox_mode", skybox_mode},
+      {"background_mode", background_mode},
       {"skybox_color", skybox_color},
       {"skybox_rotation", skybox_rotation},
 

@@ -2,9 +2,11 @@
    License. The full license is in the file LICENSE, distributed with this software. */
 #include "qtr/windows_patch.hpp"
 
+#include <algorithm>
 #include <stdexcept>
 
 #include <QOpenGLFunctions>
+#include <QVector2D>
 
 #include <backends/imgui_impl_opengl3.h>
 #include <imgui.h>
@@ -69,9 +71,10 @@ void RenderWidget::render_scene_render_3d()
                               this->camera.get_view_matrix(),
                               light_space_matrix);
 
-    // base plane
+    // base plane (not in the void: nothing there is lit)
     auto *plane_drawable = this->sp_mesh_manager->get_drawable(keys::mesh::plane);
-    if (plane_drawable && plane_drawable->render_params.visible)
+    if (plane_drawable && plane_drawable->render_params.visible &&
+        !this->void_background())
     {
       p_shader->setUniformValue("base_color",
                                 toQVec(plane_drawable->render_params.base_color));
@@ -172,8 +175,49 @@ void RenderWidget::render_scene_render_3d()
     p_shader->release();
   }
 
-  // --- skybox pass
-  this->render_skybox(this->camera.get_view_matrix(), projection);
+  // --- background: the sky, or the void's grid
+  if (this->void_background())
+    this->render_void_grid(model, this->camera.get_view_matrix(), projection);
+  else
+    this->render_skybox(this->camera.get_view_matrix(), projection);
+}
+
+bool RenderWidget::void_background() const { return this->background_mode == 1; }
+
+void RenderWidget::render_void_grid(const glm::mat4 &model,
+                                    const glm::mat4 &view,
+                                    const glm::mat4 &projection)
+{
+  auto *grid_drawable = this->sp_mesh_manager->get_drawable(keys::mesh::void_grid);
+  if (!grid_drawable)
+    return;
+
+  QOpenGLShaderProgram *p_shader = this->sp_shader_manager->get("void_grid")->get();
+  if (!p_shader)
+    return;
+
+  // transparent lines over the black clear, behind the terrain: tested
+  // against depth, never written to it; always filled, even in wireframe
+  glDepthMask(GL_FALSE);
+  glEnable(GL_BLEND);
+  glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+  glPolygonMode(GL_FRONT_AND_BACK, GL_FILL);
+
+  p_shader->bind();
+  p_shader->setUniformValue("model", toQMat(model));
+  p_shader->setUniformValue("view", toQMat(view));
+  p_shader->setUniformValue("projection", toQMat(projection));
+  p_shader->setUniformValue("terrain_half",
+                            QVector2D(0.5f * this->hmap_wx, 0.5f * this->hmap_wy));
+  p_shader->setUniformValue("cell", 0.125f * std::max(this->hmap_wx, this->hmap_wy));
+  p_shader->setUniformValue("camera_pos", toQVec(this->camera.position));
+
+  grid_drawable->draw(p_shader);
+
+  p_shader->release();
+
+  glDepthMask(GL_TRUE);
+  glPolygonMode(GL_FRONT_AND_BACK, this->wireframe_mode ? GL_LINE : GL_FILL);
 }
 
 void RenderWidget::render_skybox(const glm::mat4 &view, const glm::mat4 &projection)
@@ -251,226 +295,251 @@ void RenderWidget::render_ui_render_3d()
   // --- Overlay: FPS ---
   bool changed = false;
 
-  changed |= imgui_viewer_main_menubar(*this);
+  // no in-viewport "Viewer Type" menu bar: the host application switches the
+  // render type (set_render_type), e.g. from its own title bar
 
-  ImGui::SetNextWindowBgAlpha(0.95f);
-  ImGui::Begin("Render settings");
-
-  // --- View & Camera ---
-  ImGui::SeparatorText("View");
-  changed |= ImGui::Checkbox("Orientation gizmo", &this->show_orientation_gizmo);
-  changed |= ImGui::Checkbox("Normal visualization", &this->normal_visualization);
-  ImGui::SameLine();
-  changed |= ImGui::Checkbox("Wireframe", &this->wireframe_mode);
-  changed |= ImGui::SliderFloat("Height scale", &this->scale_h, 0.f, 2.f);
-  changed |= ImGui::SliderAngle("FOV", &this->camera.fov, 10.f, 180.f);
-  changed |= ImGui::Checkbox("Keyboard controls", &this->keyboard_navigation_enabled);
-  if (this->keyboard_navigation_enabled)
+  // the settings window can be hidden by a host with its own settings UI
+  // (set_settings_window_visible); the gizmo and overlays below stay
+  if (this->show_settings_window)
   {
-    ImGui::Indent();
-    const char *layout_names[] = {"WASD (QWERTY)", "ZQSD (AZERTY)"};
-    int         current_layout = static_cast<int>(this->keyboard_layout);
-    if (ImGui::Combo("Layout", &current_layout, layout_names, IM_ARRAYSIZE(layout_names)))
-    {
-      this->keyboard_layout = static_cast<KeyboardLayout>(current_layout);
-      changed = true;
-    }
+    ImGui::SetNextWindowBgAlpha(0.95f);
+    ImGui::Begin("Render settings");
 
-    changed |= ImGui::SliderFloat("Speed", &this->camera_move_speed, 0.1f, 10.f);
-    ImGui::Unindent();
-  }
-
-  if (ImGui::Button("Reset Camera"))
-  {
-    this->reset_camera_position();
-    this->need_update = true;
-  }
-
-  // --- Rendering Toggles ---
-  ImGui::SeparatorText("Render Options");
-
-  if (ImGui::BeginTable("#CheckGrid", 2))
-  {
-    ImGui::TableNextRow();
-    ImGui::TableNextColumn();
-    changed |= ImGui::Checkbox(
-        "Plane",
-        &this->sp_mesh_manager->get_render_params(keys::mesh::plane)->visible);
-    //
-    ImGui::TableNextRow();
-    ImGui::TableNextColumn();
-    changed |= ImGui::Checkbox(
-        "Terrain",
-        &this->sp_mesh_manager->get_render_params(keys::mesh::hmap)->visible);
-    ImGui::TableNextColumn();
-    changed |= ImGui::Checkbox(
-        "Water##render",
-        &this->sp_mesh_manager->get_render_params(keys::mesh::water)->visible);
-    //
-    ImGui::TableNextRow();
-    ImGui::TableNextColumn();
-    changed |= ImGui::Checkbox(
-        "Points",
-        &this->sp_mesh_manager->get_render_params(keys::mesh::points)->visible);
+    // --- View & Camera ---
+    ImGui::SeparatorText("View");
+    changed |= ImGui::Checkbox("Orientation gizmo", &this->show_orientation_gizmo);
+    changed |= ImGui::Checkbox("Normal visualization", &this->normal_visualization);
     ImGui::SameLine();
-    ImGui::TableNextColumn();
-    changed |= ImGui::Checkbox(
-        "Path",
-        &this->sp_mesh_manager->get_render_params(keys::mesh::path)->visible);
-    //
-    // ImGui::TableNextRow();
-    // ImGui::TableNextColumn();
-    // changed |= ImGui::Checkbox("Rocks",
-    // &this->sp_mesh_manager->get_render_params(RenderWidget::MESH_ROCKS)->visible);
-    // ImGui::TableNextColumn();
-    // changed |= ImGui::Checkbox("Trees",
-    // &this->sp_mesh_manager->get_render_params(RenderWidget::MESH_TREES)->visible);
-
-    ImGui::EndTable();
-  }
-
-  // --- Materials ---
-  if (ImGui::CollapsingHeader("Materials", ImGuiTreeNodeFlags_DefaultOpen))
-  {
-    ImGui::Text("Albedo");
-    changed |= ImGui::SliderFloat("Gamma", &this->gamma_correction, 0.01f, 4.f);
-    changed |= ImGui::Checkbox("Bypass albedo", &this->bypass_texture_albedo);
-    changed |= ImGui::Checkbox("Tonemap", &this->apply_tonemap);
-
-    ImGui::Text("Normal Map");
-    changed |= ImGui::SliderFloat("Scaling", &this->normal_map_scaling, 0.f, 2.f);
-  }
-
-  // --- Lighting ---
-  if (ImGui::CollapsingHeader("Lighting", ImGuiTreeNodeFlags_DefaultOpen))
-  {
-    changed |= ImGui::SliderAngle("Azimuth", &this->light_phi, -180.f, 180.f);
-    changed |= ImGui::SliderAngle("Zenith", &this->light_theta, 0.f, 90.f);
-    changed |= ImGui::Checkbox("Auto rotate", &this->auto_rotate_light);
-
-    ImGui::Text("Shadow Map");
-    changed |= ImGui::Checkbox("Bypass", &this->bypass_shadow_map);
-    changed |= ImGui::SliderFloat("Strength", &this->shadow_strength, 0.f, 1.f);
-
-    if (ImGui::TreeNode("Ambient Occlusion"))
+    changed |= ImGui::Checkbox("Wireframe", &this->wireframe_mode);
+    changed |= ImGui::SliderFloat("Height scale", &this->scale_h, 0.f, 2.f);
+    changed |= ImGui::SliderAngle("FOV", &this->camera.fov, 10.f, 180.f);
+    changed |= ImGui::Checkbox("Keyboard controls", &this->keyboard_navigation_enabled);
+    if (this->keyboard_navigation_enabled)
     {
-      changed |= ImGui::Checkbox("Enable AO", &this->add_ambiant_occlusion);
-      changed |= ImGui::SliderFloat("Strength",
-                                    &this->ambiant_occlusion_strength,
-                                    0.f,
-                                    1.f);
-      changed |= ImGui::SliderFloat("Radius", &this->ambiant_occlusion_radius, 0.f, 0.5f);
-      ImGui::TreePop();
-    }
-  }
-
-  // --- Water ---
-  if (ImGui::CollapsingHeader("Water", ImGuiTreeNodeFlags_DefaultOpen))
-  {
-    changed |= ImGui::SliderFloat("Color depth", &this->water_color_depth, 0.f, 0.2f);
-    changed |= ImGui::SliderFloat("Specularity", &this->water_spec_strength, 0.f, 1.f);
-    changed |= imgui_show_water_preset_selector(this->color_shallow_water,
-                                                this->color_deep_water);
-
-    ImGui::Separator();
-
-    changed |= ImGui::Checkbox("Foam", &this->add_water_foam);
-    if (this->add_water_foam)
-      changed |= ImGui::SliderFloat("Foam depth", &this->foam_depth, 0.f, 0.1f);
-
-    changed |= ImGui::Checkbox("Waves", &this->add_water_waves);
-    if (this->add_water_waves)
-    {
-      changed |= ImGui::SliderFloat("Wavenumber", &this->waves_kw, 0.f, 2048.f);
-      changed |= ImGui::SliderFloat("Amplitude", &this->waves_amplitude, 0.f, 0.1f);
-      changed |= ImGui::SliderFloat("Normal amplitude",
-                                    &this->waves_normal_amplitude,
-                                    0.f,
-                                    0.1f);
-      changed |= ImGui::SliderAngle("Angle", &this->waves_alpha, -180.f, 180.f);
-      changed |= ImGui::SliderFloat("Angle spread", &this->angle_spread_ratio, 0.f, 0.1f);
-      changed |= ImGui::Checkbox("Animate", &this->animate_waves);
-      if (this->animate_waves)
-        changed |= ImGui::SliderFloat("Speed", &this->waves_speed, 0.f, 1.f);
-    }
-  }
-
-  // --- Skybox ---
-  if (ImGui::CollapsingHeader("Skybox", ImGuiTreeNodeFlags_DefaultOpen))
-  {
-    changed |= ImGui::Checkbox("Enable skybox", &this->show_skybox);
-    if (this->show_skybox)
-    {
-      const char *skybox_modes[] = {"Uniform Color", "Image (Equirectangular)"};
-      int         current_mode = static_cast<int>(this->skybox_mode);
-      if (ImGui::Combo("Mode##skybox",
-                       &current_mode,
-                       skybox_modes,
-                       IM_ARRAYSIZE(skybox_modes)))
+      ImGui::Indent();
+      const char *layout_names[] = {"WASD (QWERTY)", "ZQSD (AZERTY)"};
+      int         current_layout = static_cast<int>(this->keyboard_layout);
+      if (ImGui::Combo("Layout",
+                       &current_layout,
+                       layout_names,
+                       IM_ARRAYSIZE(layout_names)))
       {
-        this->skybox_mode = static_cast<SkyboxMode>(current_mode);
+        this->keyboard_layout = static_cast<KeyboardLayout>(current_layout);
         changed = true;
       }
 
-      if (this->skybox_mode == SkyboxMode::SKYBOX_UNIFORM_COLOR)
-      {
-        changed |= ImGui::ColorEdit3("Sky color", glm::value_ptr(this->skybox_color));
-      }
-      else if (this->skybox_mode == SkyboxMode::SKYBOX_IMAGE)
-      {
-        changed |= ImGui::SliderAngle("Rotation##skybox",
-                                      &this->skybox_rotation,
-                                      -180.f,
-                                      180.f);
-        bool has_tex = this->sp_texture_manager->get(keys::tex::skybox) &&
-                       this->sp_texture_manager->get(keys::tex::skybox)->is_active();
-        if (!has_tex)
-          ImGui::TextColored(ImVec4(1.f, 0.5f, 0.2f, 1.f),
-                             "No skybox texture loaded (fallback to sky color)");
-      }
-    }
-  }
-
-  // --- Atmosphere ---
-  if (ImGui::CollapsingHeader("Atmosphere", ImGuiTreeNodeFlags_DefaultOpen))
-  {
-    changed |= ImGui::Checkbox("Fog", &this->add_fog);
-    if (this->add_fog)
-    {
-      changed |= ImGui::SliderFloat("Density##fog", &this->fog_density, 0.f, 100.f);
-      changed |= ImGui::SliderFloat("Height##fog", &this->fog_height, 0.f, 1.f);
-      changed |= ImGui::Checkbox("Match skybox horizon", &this->fog_match_skybox);
-      if (!this->fog_match_skybox)
-        changed |= ImGui::ColorEdit3("Color##fog", glm::value_ptr(this->fog_color));
+      changed |= ImGui::SliderFloat("Speed", &this->camera_move_speed, 0.1f, 10.f);
+      ImGui::Unindent();
     }
 
-    changed |= ImGui::Checkbox("Scattering", &this->add_atmospheric_scattering);
-    if (this->add_atmospheric_scattering)
+    if (ImGui::Button("Reset Camera"))
     {
-      changed |= ImGui::SliderFloat("Density##scat", &this->scattering_density, 0.f, 1.f);
-      changed |= ImGui::SliderFloat("Fog strength##scat", &this->fog_strength, 0.f, 1.f);
-      changed |= ImGui::SliderFloat("Scattering ratio##scat",
-                                    &this->fog_scattering_ratio,
-                                    0.f,
-                                    1.f);
-      changed |= ImGui::ColorEdit3("Rayleigh color",
-                                   glm::value_ptr(this->rayleigh_color));
-      changed |= ImGui::ColorEdit3("Mie color", glm::value_ptr(this->mie_color));
+      this->reset_camera_position();
+      this->need_update = true;
     }
-  }
+
+    // --- Rendering Toggles ---
+    ImGui::SeparatorText("Render Options");
+
+    if (ImGui::BeginTable("#CheckGrid", 2))
+    {
+      ImGui::TableNextRow();
+      ImGui::TableNextColumn();
+      changed |= ImGui::Checkbox(
+          "Plane",
+          &this->sp_mesh_manager->get_render_params(keys::mesh::plane)->visible);
+      //
+      ImGui::TableNextRow();
+      ImGui::TableNextColumn();
+      changed |= ImGui::Checkbox(
+          "Terrain",
+          &this->sp_mesh_manager->get_render_params(keys::mesh::hmap)->visible);
+      ImGui::TableNextColumn();
+      changed |= ImGui::Checkbox(
+          "Water##render",
+          &this->sp_mesh_manager->get_render_params(keys::mesh::water)->visible);
+      //
+      ImGui::TableNextRow();
+      ImGui::TableNextColumn();
+      changed |= ImGui::Checkbox(
+          "Points",
+          &this->sp_mesh_manager->get_render_params(keys::mesh::points)->visible);
+      ImGui::SameLine();
+      ImGui::TableNextColumn();
+      changed |= ImGui::Checkbox(
+          "Path",
+          &this->sp_mesh_manager->get_render_params(keys::mesh::path)->visible);
+      //
+      // ImGui::TableNextRow();
+      // ImGui::TableNextColumn();
+      // changed |= ImGui::Checkbox("Rocks",
+      // &this->sp_mesh_manager->get_render_params(RenderWidget::MESH_ROCKS)->visible);
+      // ImGui::TableNextColumn();
+      // changed |= ImGui::Checkbox("Trees",
+      // &this->sp_mesh_manager->get_render_params(RenderWidget::MESH_TREES)->visible);
+
+      ImGui::EndTable();
+    }
+
+    // --- Materials ---
+    if (ImGui::CollapsingHeader("Materials", ImGuiTreeNodeFlags_DefaultOpen))
+    {
+      ImGui::Text("Albedo");
+      changed |= ImGui::SliderFloat("Gamma", &this->gamma_correction, 0.01f, 4.f);
+      changed |= ImGui::Checkbox("Bypass albedo", &this->bypass_texture_albedo);
+      changed |= ImGui::Checkbox("Tonemap", &this->apply_tonemap);
+
+      ImGui::Text("Normal Map");
+      changed |= ImGui::SliderFloat("Scaling", &this->normal_map_scaling, 0.f, 2.f);
+    }
+
+    // --- Lighting ---
+    if (ImGui::CollapsingHeader("Lighting", ImGuiTreeNodeFlags_DefaultOpen))
+    {
+      changed |= ImGui::SliderAngle("Azimuth", &this->light_phi, -180.f, 180.f);
+      changed |= ImGui::SliderAngle("Zenith", &this->light_theta, 0.f, 90.f);
+      changed |= ImGui::Checkbox("Auto rotate", &this->auto_rotate_light);
+
+      ImGui::Text("Shadow Map");
+      changed |= ImGui::Checkbox("Bypass", &this->bypass_shadow_map);
+      changed |= ImGui::SliderFloat("Strength", &this->shadow_strength, 0.f, 1.f);
+
+      if (ImGui::TreeNode("Ambient Occlusion"))
+      {
+        changed |= ImGui::Checkbox("Enable AO", &this->add_ambiant_occlusion);
+        changed |= ImGui::SliderFloat("Strength",
+                                      &this->ambiant_occlusion_strength,
+                                      0.f,
+                                      1.f);
+        changed |= ImGui::SliderFloat("Radius",
+                                      &this->ambiant_occlusion_radius,
+                                      0.f,
+                                      0.5f);
+        ImGui::TreePop();
+      }
+    }
+
+    // --- Water ---
+    if (ImGui::CollapsingHeader("Water", ImGuiTreeNodeFlags_DefaultOpen))
+    {
+      changed |= ImGui::SliderFloat("Color depth", &this->water_color_depth, 0.f, 0.2f);
+      changed |= ImGui::SliderFloat("Specularity", &this->water_spec_strength, 0.f, 1.f);
+      changed |= imgui_show_water_preset_selector(this->color_shallow_water,
+                                                  this->color_deep_water);
+
+      ImGui::Separator();
+
+      changed |= ImGui::Checkbox("Foam", &this->add_water_foam);
+      if (this->add_water_foam)
+        changed |= ImGui::SliderFloat("Foam depth", &this->foam_depth, 0.f, 0.1f);
+
+      changed |= ImGui::Checkbox("Waves", &this->add_water_waves);
+      if (this->add_water_waves)
+      {
+        changed |= ImGui::SliderFloat("Wavenumber", &this->waves_kw, 0.f, 2048.f);
+        changed |= ImGui::SliderFloat("Amplitude", &this->waves_amplitude, 0.f, 0.1f);
+        changed |= ImGui::SliderFloat("Normal amplitude",
+                                      &this->waves_normal_amplitude,
+                                      0.f,
+                                      0.1f);
+        changed |= ImGui::SliderAngle("Angle", &this->waves_alpha, -180.f, 180.f);
+        changed |= ImGui::SliderFloat("Angle spread",
+                                      &this->angle_spread_ratio,
+                                      0.f,
+                                      0.1f);
+        changed |= ImGui::Checkbox("Animate", &this->animate_waves);
+        if (this->animate_waves)
+          changed |= ImGui::SliderFloat("Speed", &this->waves_speed, 0.f, 1.f);
+      }
+    }
+
+    // --- Skybox ---
+    if (ImGui::CollapsingHeader("Skybox", ImGuiTreeNodeFlags_DefaultOpen))
+    {
+      changed |= ImGui::Checkbox("Enable skybox", &this->show_skybox);
+      if (this->show_skybox)
+      {
+        const char *skybox_modes[] = {"Uniform Color", "Image (Equirectangular)"};
+        int         current_mode = static_cast<int>(this->skybox_mode);
+        if (ImGui::Combo("Mode##skybox",
+                         &current_mode,
+                         skybox_modes,
+                         IM_ARRAYSIZE(skybox_modes)))
+        {
+          this->skybox_mode = static_cast<SkyboxMode>(current_mode);
+          changed = true;
+        }
+
+        if (this->skybox_mode == SkyboxMode::SKYBOX_UNIFORM_COLOR)
+        {
+          changed |= ImGui::ColorEdit3("Sky color", glm::value_ptr(this->skybox_color));
+        }
+        else if (this->skybox_mode == SkyboxMode::SKYBOX_IMAGE)
+        {
+          changed |= ImGui::SliderAngle("Rotation##skybox",
+                                        &this->skybox_rotation,
+                                        -180.f,
+                                        180.f);
+          bool has_tex = this->sp_texture_manager->get(keys::tex::skybox) &&
+                         this->sp_texture_manager->get(keys::tex::skybox)->is_active();
+          if (!has_tex)
+            ImGui::TextColored(ImVec4(1.f, 0.5f, 0.2f, 1.f),
+                               "No skybox texture loaded (fallback to sky color)");
+        }
+      }
+    }
+
+    // --- Atmosphere ---
+    if (ImGui::CollapsingHeader("Atmosphere", ImGuiTreeNodeFlags_DefaultOpen))
+    {
+      changed |= ImGui::Checkbox("Fog", &this->add_fog);
+      if (this->add_fog)
+      {
+        changed |= ImGui::SliderFloat("Density##fog", &this->fog_density, 0.f, 100.f);
+        changed |= ImGui::SliderFloat("Height##fog", &this->fog_height, 0.f, 1.f);
+        changed |= ImGui::Checkbox("Match skybox horizon", &this->fog_match_skybox);
+        if (!this->fog_match_skybox)
+          changed |= ImGui::ColorEdit3("Color##fog", glm::value_ptr(this->fog_color));
+      }
+
+      changed |= ImGui::Checkbox("Scattering", &this->add_atmospheric_scattering);
+      if (this->add_atmospheric_scattering)
+      {
+        changed |= ImGui::SliderFloat("Density##scat",
+                                      &this->scattering_density,
+                                      0.f,
+                                      1.f);
+        changed |= ImGui::SliderFloat("Fog strength##scat",
+                                      &this->fog_strength,
+                                      0.f,
+                                      1.f);
+        changed |= ImGui::SliderFloat("Scattering ratio##scat",
+                                      &this->fog_scattering_ratio,
+                                      0.f,
+                                      1.f);
+        changed |= ImGui::ColorEdit3("Rayleigh color",
+                                     glm::value_ptr(this->rayleigh_color));
+        changed |= ImGui::ColorEdit3("Mie color", glm::value_ptr(this->mie_color));
+      }
+    }
+
+    ImGui::End(); // "Render settings"
+  } // show_settings_window
 
   // --- Orientation gizmo ---
   if (this->show_orientation_gizmo)
   {
     ImGuiViewport *viewport = ImGui::GetMainViewport();
     const float    gizmo_radius = 45.0f;
-    const ImVec2   gizmo_center(viewport->WorkPos.x + viewport->WorkSize.x - 65.0f,
-                              viewport->WorkPos.y + 65.0f);
+    const ImVec2   gizmo_center(viewport->WorkPos.x + viewport->WorkSize.x - 65.0f -
+                                  this->overlay_inset_right,
+                              viewport->WorkPos.y + 65.0f + this->overlay_inset_top);
 
     changed |= imgui_orientation_gizmo(this->alpha_x,
                                        this->alpha_y,
                                        gizmo_center,
-                                       gizmo_radius);
+                                       gizmo_radius,
+                                       this->gizmo_font);
   }
 
   // --- Mouse controls overlay ---
@@ -484,8 +553,9 @@ void RenderWidget::render_ui_render_3d()
 
     // Position at top-right (offset below gizmo if both are shown)
     float  y_offset = (this->show_orientation_gizmo) ? 130.0f : padding.y;
-    ImVec2 pos = ImVec2(viewport->WorkPos.x + viewport->WorkSize.x - padding.x,
-                        viewport->WorkPos.y + y_offset);
+    ImVec2 pos = ImVec2(viewport->WorkPos.x + viewport->WorkSize.x - padding.x -
+                            this->overlay_inset_right,
+                        viewport->WorkPos.y + y_offset + this->overlay_inset_top);
 
     // Window flags for overlay
     ImGuiWindowFlags flags = ImGuiWindowFlags_NoDecoration |
@@ -520,9 +590,7 @@ void RenderWidget::render_ui_render_3d()
     ImGui::PopStyleVar(2);
   }
 
-  // --- End main window ---
   this->need_update |= changed;
-  ImGui::End();
 
   // --- IO / camera control ---
   ImGuiIO &io = this->get_imgui_io();
@@ -534,8 +602,9 @@ void RenderWidget::render_ui_render_3d()
     if (this->show_orientation_gizmo)
     {
       ImGuiViewport *viewport = ImGui::GetMainViewport();
-      ImVec2         gizmo_center(viewport->WorkPos.x + viewport->WorkSize.x - 65.0f,
-                          viewport->WorkPos.y + 65.0f);
+      ImVec2         gizmo_center(viewport->WorkPos.x + viewport->WorkSize.x - 65.0f -
+                              this->overlay_inset_right,
+                          viewport->WorkPos.y + 65.0f + this->overlay_inset_top);
       float          dx = io.MousePos.x - gizmo_center.x;
       float          dy = io.MousePos.y - gizmo_center.y;
       if (dx * dx + dy * dy <= (45.0f * 1.25f) * (45.0f * 1.25f))

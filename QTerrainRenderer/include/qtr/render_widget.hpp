@@ -6,7 +6,11 @@
 #include <QOpenGLWidget>
 #include <QTimer>
 
+#include <any>
+#include <map>
+#include <string>
 #include <unordered_set>
+#include <vector>
 
 #include <glm/glm.hpp>
 #include <glm/gtc/matrix_transform.hpp>
@@ -65,9 +69,13 @@ struct Viewer2DSettings
   } cmap = Colormap::MAGMA;
 };
 
+struct RenderWidgetSettingsTables; // settings.cpp
+
 class RenderWidget : public QOpenGLWidget, protected QOpenGLFunctions_3_3_Core
 {
   Q_OBJECT
+
+  friend struct RenderWidgetSettingsTables;
 
 public:
   explicit RenderWidget(const std::string &_title = "", QWidget *parent = nullptr);
@@ -78,7 +86,54 @@ public:
   nlohmann::json json_to() const;
 
   // --- Setters / Getters
-  void set_render_type(const RenderType &new_render_type);
+  void       set_render_type(const RenderType &new_render_type);
+  RenderType get_render_type() const { return this->render_type; }
+
+  // --- Render settings, by key, for host-side settings UIs
+  //
+  // Keys name the settings shown in the built-in ImGui panel ("fov",
+  // "light_phi", "visible.water", "2d.colormap"...; see settings.cpp). Angles
+  // are in radians. Pointers stay valid for the widget's lifetime; after
+  // writing through one, call settings_changed(). Unknown keys return nullptr.
+  bool      *bool_setting(const std::string &key);
+  float     *float_setting(const std::string &key);
+  glm::vec3 *color_setting(const std::string &key);
+  int        get_int_setting(const std::string &key) const;
+  void       set_int_setting(const std::string &key, int value);
+
+  static const std::vector<std::string> &bool_setting_keys();
+  static const std::vector<std::string> &float_setting_keys();
+  static const std::vector<std::string> &color_setting_keys();
+  static const std::vector<std::string> &int_setting_keys();
+
+  /// Value the setting had when the widget was constructed (empty if unknown).
+  std::any default_setting(const std::string &key) const;
+
+  /// Redraw after settings were written through the accessors above.
+  void settings_changed();
+
+  /// Camera and sun back to their initial placement.
+  void reset_camera();
+
+  /// Reset the 2D viewer's pan and zoom.
+  void reset_view_2d();
+
+  /// Show or hide the built-in ImGui "Render settings" window (a host with its
+  /// own settings UI hides it). The orientation gizmo is not affected.
+  void set_settings_window_visible(bool visible);
+  bool get_settings_window_visible() const { return this->show_settings_window; }
+
+  /// Space (logical px) a host overlay takes along the top and right edges; the
+  /// orientation gizmo and the mouse-controls hint, both anchored top-right,
+  /// move clear of it.
+  void set_overlay_insets(float top, float right);
+
+  /// Side of the (square) shadow map in texels, 1024 by default. Clamped to
+  /// [256, 8192] and to what the GPU supports; takes effect at once, or at GL
+  /// initialisation when called before it. Also reachable as the int setting
+  /// "shadow_map_resolution".
+  void set_shadow_map_resolution(int resolution);
+  int  get_shadow_map_resolution() const { return this->shadow_map_resolution; }
 
   bool get_bypass_texture_albedo() const;
   void set_bypass_texture_albedo(bool new_state);
@@ -166,6 +221,10 @@ protected:
   void render_ui_render_2d();
   void render_ui_render_3d();
   void render_skybox(const glm::mat4 &view, const glm::mat4 &projection);
+  void render_void_grid(const glm::mat4 &model,
+                        const glm::mat4 &view,
+                        const glm::mat4 &projection);
+  bool void_background() const;
   void render_depth_map(const glm::mat4 &model,
                         const glm::mat4 &view,
                         const glm::mat4 &projection);
@@ -190,6 +249,7 @@ protected:
   void     keyPressEvent(QKeyEvent *e) override;
   void     keyReleaseEvent(QKeyEvent *e) override;
   void     focusOutEvent(QFocusEvent *event) override;
+  void     leaveEvent(QEvent *event) override;
 
 private:
   // --- Helpers
@@ -212,10 +272,17 @@ private:
   float         dt = 0.f;
 
   // --- User parameters
-  bool wireframe_mode = false;
-  bool auto_rotate_light = false;
-  bool auto_rotate_camera = false;
-  bool show_orientation_gizmo = true;
+  bool    wireframe_mode = false;
+  bool    auto_rotate_light = false;
+  bool    auto_rotate_camera = false;
+  bool    show_orientation_gizmo = true;
+  bool    show_settings_window = true; // built-in ImGui "Render settings"
+  ImFont *gizmo_font = nullptr;        // orientation gizmo labels (null: ImGui default)
+  float   overlay_inset_top = 0.f;     // see set_overlay_insets
+  float   overlay_inset_right = 0.f;
+
+  std::map<std::string, std::any> setting_defaults; // captured at construction
+  void                            capture_setting_defaults();
 
   // --- Camera parameters (see reset_camera_position)
   glm::vec3 target;      // Orbit center
@@ -258,6 +325,7 @@ private:
   // Shadows
   bool  bypass_shadow_map = false;
   float shadow_strength = 0.9f;
+  int   shadow_map_resolution = 1024; // see set_shadow_map_resolution
 
   // Ambient occlusion
   bool  add_ambiant_occlusion = true;
@@ -268,8 +336,8 @@ private:
   bool bypass_texture_albedo = false;
 
   // --- Water
-  glm::vec3 color_shallow_water;
-  glm::vec3 color_deep_water;
+  glm::vec3 color_shallow_water = glm::vec3(0.25f, 0.85f, 0.80f); // "caribbean"
+  glm::vec3 color_deep_water = glm::vec3(0.00f, 0.15f, 0.35f);
   float     water_color_depth = 0.015f;
   float     water_spec_strength = 0.5f;
 
@@ -303,9 +371,13 @@ private:
   // --- Skybox
   bool       show_skybox = true;
   SkyboxMode skybox_mode = SkyboxMode::SKYBOX_IMAGE;
-  glm::vec3  skybox_color = glm::vec3(0.53f, 0.81f, 0.92f); // sky blue
-  float      skybox_rotation = 0.f;
-  bool       fog_match_skybox = true;
+
+  // 0: the sky (skybox, lit ground plane); 1: "Void": black, unlit, a subtle
+  // grid at the terrain's lowest point with its footprint's corners marked
+  int       background_mode = 0;
+  glm::vec3 skybox_color = glm::vec3(0.53f, 0.81f, 0.92f); // sky blue
+  float     skybox_rotation = 0.f;
+  bool      fog_match_skybox = true;
 
   // --- 2D Viewer
   Viewer2DSettings viewer2d_settings;

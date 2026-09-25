@@ -4,7 +4,9 @@
 
 #include <algorithm>
 #include <array>
+#include <cfloat>
 #include <cmath>
+#include <unordered_map>
 
 #include <glm/geometric.hpp>
 #include <glm/gtc/constants.hpp>
@@ -32,12 +34,89 @@ bool imgui_enum_selector(const std::string              &label,
                       static_cast<int>(cstrs.size()));
 }
 
+namespace
+{
+
+ImU32 with_alpha(ImU32 col, float alpha)
+{
+  const int a = static_cast<int>(std::clamp(alpha, 0.f, 1.f) *
+                                 float((col >> IM_COL32_A_SHIFT) & 0xFF));
+  return (col & ~IM_COL32_A_MASK) | (ImU32(a) << IM_COL32_A_SHIFT);
+}
+
+ImU32 mix_col(ImU32 a, ImU32 b, float t)
+{
+  const ImVec4 ca = ImGui::ColorConvertU32ToFloat4(a);
+  const ImVec4 cb = ImGui::ColorConvertU32ToFloat4(b);
+  return ImGui::ColorConvertFloat4ToU32(ImVec4(ca.x + (cb.x - ca.x) * t,
+                                               ca.y + (cb.y - ca.y) * t,
+                                               ca.z + (cb.z - ca.z) * t,
+                                               ca.w + (cb.w - ca.w) * t));
+}
+
+// per ImGui context (one per renderer): hover fade and the click-to-align glide
+struct GizmoState
+{
+  float hover_t = 0.f;
+  bool  dragging = false;
+  bool  gliding = false;
+  float target_ax = 0.f;
+  float target_ay = 0.f;
+};
+
+GizmoState &gizmo_state()
+{
+  static std::unordered_map<ImGuiContext *, GizmoState> states;
+  return states[ImGui::GetCurrentContext()];
+}
+
+// shortest signed difference between two angles
+float angle_delta(float from, float to)
+{
+  const float two_pi = glm::two_pi<float>();
+  float       d = std::fmod(to - from, two_pi);
+  if (d > glm::pi<float>())
+    d -= two_pi;
+  else if (d < -glm::pi<float>())
+    d += two_pi;
+  return d;
+}
+
+} // namespace
+
 bool imgui_orientation_gizmo(float        &alpha_x,
                              float        &alpha_y,
                              const ImVec2 &center,
-                             float         radius)
+                             float         radius,
+                             ImFont       *font)
 {
-  bool changed = false;
+  bool        changed = false;
+  GizmoState &st = gizmo_state();
+  ImGuiIO    &io = ImGui::GetIO();
+  const float dt = std::max(io.DeltaTime, 1e-4f);
+
+  const float half_pi = glm::half_pi<float>();
+  const float pi = glm::pi<float>();
+
+  // --- clicking a knob glides the view there instead of jumping
+  if (st.gliding)
+  {
+    const float k = 1.f - std::exp(-dt * 14.f); // frame-rate independent ease
+    const float dx = st.target_ax - alpha_x;
+    const float dy = angle_delta(alpha_y, st.target_ay);
+    if (std::abs(dx) < 1e-3f && std::abs(dy) < 1e-3f)
+    {
+      alpha_x = st.target_ax;
+      alpha_y = st.target_ay;
+      st.gliding = false;
+    }
+    else
+    {
+      alpha_x += dx * k;
+      alpha_y += dy * k;
+    }
+    changed = true;
+  }
 
   const float cos_ax = std::cos(alpha_x);
   const float sin_ax = std::sin(alpha_x);
@@ -55,70 +134,35 @@ bool imgui_orientation_gizmo(float        &alpha_x,
     const char *tooltip;
     glm::vec3   dir;
     ImU32       color;
-    ImU32       color_dim;
     float       target_ax;
     float       target_ay;
     bool        is_positive;
   };
 
-  const float half_pi = glm::half_pi<float>();
-  const float pi = glm::pi<float>();
+  // cardinal axes: X is East, -X is West, Y is North, -Y is South, +Z is Top.
+  // In OpenGL world coords: +Y is Up (Top), -Z is North, +Z is South, +X is
+  // East, -X is West
+  const ImU32 red = IM_COL32(236, 72, 92, 255);
+  const ImU32 green = IM_COL32(128, 196, 62, 255);
+  const ImU32 blue = IM_COL32(64, 146, 250, 255);
 
-  // cardinal axes mapping according to issue specification:
-  // X is East, -X is West, Y is North, -Y is South, +Z is Top
-  // in OpenGL world coords: +Y is Up (Top), -Z is North, +Z is South, +X is East, -X is
-  // West
   const std::array<AxisInfo, 5> axes = {
-      // +X (East)
-      AxisInfo{"E",
-               "+X (East)",
-               glm::vec3(1.f, 0.f, 0.f),
-               IM_COL32(235, 75, 90, 255),
-               IM_COL32(140, 45, 55, 180),
-               0.f,
-               half_pi,
-               true},
-      // -X (West)
-      AxisInfo{"W",
-               "-X (West)",
-               glm::vec3(-1.f, 0.f, 0.f),
-               IM_COL32(235, 75, 90, 255),
-               IM_COL32(140, 45, 55, 180),
-               0.f,
-               -half_pi,
-               false},
-      // +Y (North: in OpenGL, North is -Z)
-      AxisInfo{"N",
-               "+Y (North)",
-               glm::vec3(0.f, 0.f, -1.f),
-               IM_COL32(120, 195, 60, 255),
-               IM_COL32(70, 115, 35, 180),
-               0.f,
-               0.f,
-               true},
-      // -Y (South: in OpenGL, South is +Z)
-      AxisInfo{"S",
-               "-Y (South)",
-               glm::vec3(0.f, 0.f, 1.f),
-               IM_COL32(120, 195, 60, 255),
-               IM_COL32(70, 115, 35, 180),
-               0.f,
-               pi,
-               false},
-      // +Z (Top: in OpenGL, Top is +Y)
+      AxisInfo{"E", "+X (East)", glm::vec3(1.f, 0.f, 0.f), red, 0.f, half_pi, true},
+      AxisInfo{"W", "-X (West)", glm::vec3(-1.f, 0.f, 0.f), red, 0.f, -half_pi, false},
+      AxisInfo{"N", "+Y (North)", glm::vec3(0.f, 0.f, -1.f), green, 0.f, 0.f, true},
+      AxisInfo{"S", "-Y (South)", glm::vec3(0.f, 0.f, 1.f), green, 0.f, pi, false},
       AxisInfo{"Top",
                "+Z (Top)",
                glm::vec3(0.f, 1.f, 0.f),
-               IM_COL32(60, 140, 245, 255),
-               IM_COL32(35, 80, 145, 180),
+               blue,
                0.99f * half_pi,
                0.f,
                true},
   };
 
-  const float arm_len = radius * 0.72f;
-  const float knob_r_pos = radius * 0.22f;
-  const float knob_r_neg = radius * 0.17f;
+  const float arm_len = radius * 0.70f;
+  const float knob_r_pos = radius * 0.215f;
+  const float knob_r_neg = radius * 0.175f;
 
   struct ProjectedAxis
   {
@@ -129,25 +173,24 @@ bool imgui_orientation_gizmo(float        &alpha_x,
     bool   hovered;
   };
 
-  ImGuiIO &io = ImGui::GetIO();
-  ImVec2   mouse_pos = io.MousePos;
+  const ImVec2 mouse_pos = io.MousePos;
 
   std::array<ProjectedAxis, axes.size()> projected;
-  int                          hovered_idx = -1;
-  float                        max_hover_depth = -1e9f;
+  int                                    hovered_idx = -1;
+  float                                  max_hover_depth = -1e9f;
 
   for (size_t i = 0; i < axes.size(); ++i)
   {
-    float sx = glm::dot(axes[i].dir, right);
-    float sy = -glm::dot(axes[i].dir, up);
-    float depth = glm::dot(axes[i].dir, -forward);
+    const float sx = glm::dot(axes[i].dir, right);
+    const float sy = -glm::dot(axes[i].dir, up);
+    const float depth = glm::dot(axes[i].dir, -forward);
 
-    ImVec2 p_2d(center.x + sx * arm_len, center.y + sy * arm_len);
-    float  r_knob = axes[i].is_positive ? knob_r_pos : knob_r_neg;
+    const ImVec2 p_2d(center.x + sx * arm_len, center.y + sy * arm_len);
+    const float  r_knob = axes[i].is_positive ? knob_r_pos : knob_r_neg;
 
-    float dx = mouse_pos.x - p_2d.x;
-    float dy = mouse_pos.y - p_2d.y;
-    bool  is_hover = (dx * dx + dy * dy) <= (r_knob + 3.f) * (r_knob + 3.f);
+    const float dx = mouse_pos.x - p_2d.x;
+    const float dy = mouse_pos.y - p_2d.y;
+    const bool  is_hover = (dx * dx + dy * dy) <= (r_knob + 3.f) * (r_knob + 3.f);
 
     projected[i] = ProjectedAxis{static_cast<int>(i), p_2d, depth, r_knob, is_hover};
 
@@ -158,34 +201,39 @@ bool imgui_orientation_gizmo(float        &alpha_x,
     }
   }
 
-  // update hover state to ensure only the foremost hovered knob is active
+  // only the foremost hovered knob is active
   for (size_t i = 0; i < projected.size(); ++i)
     projected[i].hovered = (static_cast<int>(i) == hovered_idx);
 
-  // drag interaction
-  static bool dragging = false;
-  float       dist_to_center_sq = (mouse_pos.x - center.x) * (mouse_pos.x - center.x) +
-                            (mouse_pos.y - center.y) * (mouse_pos.y - center.y);
-  bool in_gizmo_disk = dist_to_center_sq <= (radius * 1.25f) * (radius * 1.25f);
+  // --- interaction
+  const float dist_to_center_sq = (mouse_pos.x - center.x) * (mouse_pos.x - center.x) +
+                                  (mouse_pos.y - center.y) * (mouse_pos.y - center.y);
+  const bool in_gizmo_disk = dist_to_center_sq <= (radius * 1.25f) * (radius * 1.25f);
 
   if (ImGui::IsMouseClicked(ImGuiMouseButton_Left) && in_gizmo_disk)
   {
     if (hovered_idx >= 0)
     {
-      alpha_x = axes[hovered_idx].target_ax;
-      alpha_y = axes[hovered_idx].target_ay;
+      st.target_ax = axes[hovered_idx].target_ax;
+      st.target_ay = axes[hovered_idx].target_ay;
+      st.gliding = true;
       changed = true;
     }
     else
     {
-      dragging = true;
+      st.dragging = true;
+      st.gliding = false;
     }
   }
 
-  if (!ImGui::IsMouseDown(ImGuiMouseButton_Left))
-    dragging = false;
+  // grabbing the view elsewhere takes over from a glide in progress
+  if (ImGui::IsMouseClicked(ImGuiMouseButton_Left) && !in_gizmo_disk)
+    st.gliding = false;
 
-  if (dragging && (io.MouseDelta.x != 0.f || io.MouseDelta.y != 0.f))
+  if (!ImGui::IsMouseDown(ImGuiMouseButton_Left))
+    st.dragging = false;
+
+  if (st.dragging && (io.MouseDelta.x != 0.f || io.MouseDelta.y != 0.f))
   {
     alpha_y -= io.MouseDelta.x * 0.008f;
     alpha_x += io.MouseDelta.y * 0.008f;
@@ -193,64 +241,125 @@ bool imgui_orientation_gizmo(float        &alpha_x,
     changed = true;
   }
 
-  // sort projected axes back-to-front (ascending depth)
+  // background fades in while the pointer is over the gizmo (or dragging it)
+  {
+    const float target = (in_gizmo_disk || st.dragging) ? 1.f : 0.f;
+    const float k = 1.f - std::exp(-dt * 12.f);
+    const float before = st.hover_t;
+    st.hover_t += (target - st.hover_t) * k;
+    if (std::abs(target - st.hover_t) < 0.01f)
+      st.hover_t = target;
+    if (st.hover_t != before)
+      changed = true; // keep frames coming until the fade settles
+  }
+
+  // back-to-front
   std::sort(projected.begin(),
             projected.end(),
             [](const ProjectedAxis &a, const ProjectedAxis &b)
             { return a.depth < b.depth; });
 
-  // draw overlay
-  ImDrawList *draw_list = ImGui::GetForegroundDrawList();
+  // --- draw
+  ImDrawList *dl = ImGui::GetForegroundDrawList();
+  const int   segments = 64;
+  const float h = st.hover_t;
 
-  // background disk
-  draw_list->AddCircleFilled(center, radius * 1.15f, IM_COL32(20, 20, 20, 160));
-  draw_list->AddCircle(center, radius * 1.15f, IM_COL32(60, 60, 60, 200), 0, 1.5f);
+  // disc: soft shadow, body, hairline rim
+  const float disc_r = radius * 1.12f;
+  dl->AddCircleFilled(ImVec2(center.x, center.y + 1.5f),
+                      disc_r + 1.5f,
+                      IM_COL32(0, 0, 0, int(40 + 30 * h)),
+                      segments);
+  dl->AddCircleFilled(center, disc_r, IM_COL32(26, 27, 30, int(120 + 70 * h)), segments);
+  dl->AddCircle(center,
+                disc_r,
+                IM_COL32(255, 255, 255, int(18 + 22 * h)),
+                segments,
+                1.0f);
 
-  // faint horizon guide circle
-  draw_list->AddCircle(center, arm_len, IM_COL32(100, 100, 100, 40), 32, 1.0f);
+  // faint horizon ring
+  dl->AddCircle(center,
+                arm_len,
+                IM_COL32(255, 255, 255, int(10 + 12 * h)),
+                segments,
+                1.0f);
 
-  // draw axes and knobs in depth order
+  ImFont     *label_font = font ? font : ImGui::GetFont();
+  const float base_size = font ? 11.5f : ImGui::GetFontSize();
+
   for (const auto &p : projected)
   {
     const auto &axis = axes[p.index];
-    bool        in_front = p.depth >= 0.f;
 
-    // stem line from center to knob
-    ImU32 line_col = in_front ? axis.color : axis.color_dim;
-    float line_th = in_front ? 2.5f : 1.2f;
-    draw_list->AddLine(center, p.pos_2d, line_col, line_th);
+    // 0 at the back, 1 facing the viewer: fades rather than flips
+    const float facing = std::clamp(0.5f + 0.5f * p.depth, 0.f, 1.f);
+    const float presence = 0.35f + 0.65f * facing;
 
-    // knob fill
-    ImU32 fill_col;
-    if (p.hovered)
-      fill_col = IM_COL32(255, 255, 255, 240);
-    else if (axis.is_positive)
-      fill_col = in_front ? axis.color : axis.color_dim;
+    // stem, stopping at the knob's rim
+    {
+      const ImVec2 d(p.pos_2d.x - center.x, p.pos_2d.y - center.y);
+      const float  len = std::sqrt(d.x * d.x + d.y * d.y);
+      if (len > p.knob_r + 1.f)
+      {
+        const float  t = (len - p.knob_r) / len;
+        const ImVec2 end(center.x + d.x * t, center.y + d.y * t);
+        dl->AddLine(center,
+                    end,
+                    with_alpha(axis.color, (axis.is_positive ? 0.9f : 0.55f) * presence),
+                    axis.is_positive ? 2.0f : 1.4f);
+      }
+    }
+
+    const float r = p.knob_r + (p.hovered ? 1.5f : 0.f);
+
+    if (axis.is_positive)
+    {
+      // solid knob, lit when hovered
+      const ImU32 fill = p.hovered
+                             ? mix_col(axis.color, IM_COL32(255, 255, 255, 255), 0.30f)
+                             : mix_col(IM_COL32(40, 40, 44, 255), axis.color, presence);
+      dl->AddCircleFilled(p.pos_2d, r, fill, segments);
+      dl->AddCircle(p.pos_2d, r, IM_COL32(0, 0, 0, 90), segments, 1.0f);
+    }
     else
-      fill_col = in_front ? axis.color_dim : IM_COL32(40, 40, 40, 180);
+    {
+      // hollow knob: tinted glass with a coloured ring
+      dl->AddCircleFilled(
+          p.pos_2d,
+          r,
+          p.hovered
+              ? with_alpha(axis.color, 0.55f)
+              : mix_col(IM_COL32(30, 31, 34, 230), with_alpha(axis.color, 0.9f), 0.22f),
+          segments);
+      dl->AddCircle(p.pos_2d, r - 0.5f, with_alpha(axis.color, presence), segments, 1.5f);
+    }
 
-    draw_list->AddCircleFilled(p.pos_2d, p.knob_r, fill_col);
+    // label, shrunk to fit inside its knob
+    float       size = base_size;
+    ImVec2      text_size = label_font->CalcTextSizeA(size, FLT_MAX, 0.f, axis.label);
+    const float room = 2.f * r - 4.f;
+    if (text_size.x > room && text_size.x > 0.f)
+    {
+      size *= room / text_size.x;
+      text_size = label_font->CalcTextSizeA(size, FLT_MAX, 0.f, axis.label);
+    }
+    const ImVec2 text_pos(std::round(p.pos_2d.x - text_size.x * 0.5f),
+                          std::round(p.pos_2d.y - text_size.y * 0.5f));
 
-    // knob border / outline
-    ImU32 border_col = p.hovered ? IM_COL32(255, 255, 255, 255)
-                                 : (in_front ? IM_COL32(255, 255, 255, 180)
-                                             : IM_COL32(120, 120, 120, 120));
-    draw_list->AddCircle(p.pos_2d, p.knob_r, border_col, 0, 1.2f);
+    ImU32 text_col;
+    if (axis.is_positive)
+      text_col = p.hovered ? IM_COL32(20, 20, 24, 255)
+                           : IM_COL32(255, 255, 255, int(150 + 105 * facing));
+    else
+      text_col = p.hovered ? IM_COL32(255, 255, 255, 255)
+                           : mix_col(IM_COL32(200, 200, 200, 255), axis.color, 0.45f);
 
-    // label
-    ImVec2 text_size = ImGui::CalcTextSize(axis.label);
-    ImVec2 text_pos(p.pos_2d.x - text_size.x * 0.5f, p.pos_2d.y - text_size.y * 0.5f);
-    ImU32 text_col = p.hovered ? IM_COL32(20, 20, 20, 255) : IM_COL32(255, 255, 255, 255);
-
-    draw_list->AddText(text_pos, text_col, axis.label);
+    dl->AddText(label_font, size, text_pos, text_col, axis.label);
   }
 
-  // center pivot point
-  draw_list->AddCircleFilled(center, 3.0f, IM_COL32(200, 200, 200, 220));
-
-  // tooltip on hover
-  if (hovered_idx >= 0)
-    ImGui::SetTooltip("%s", axes[hovered_idx].tooltip);
+  // pivot (no hover tooltips: the knobs' letters already say which axis is
+  // which, and ImGui tooltips would clash with the host's)
+  dl->AddCircleFilled(center, 2.2f, IM_COL32(220, 220, 225, int(150 + 80 * h)), 16);
 
   return changed;
 }

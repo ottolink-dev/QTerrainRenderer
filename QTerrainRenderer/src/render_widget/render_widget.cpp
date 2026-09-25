@@ -2,8 +2,12 @@
    License. The full license is in the file LICENSE, distributed with this software. */
 #include "qtr/windows_patch.hpp"
 
+#include <algorithm>
 #include <stdexcept>
 
+#include <glm/gtc/constants.hpp>
+
+#include <QFile>
 #include <QMessageBox>
 #include <QOpenGLFunctions>
 #include <QSurfaceFormat>
@@ -53,6 +57,9 @@ RenderWidget::RenderWidget(const std::string &_title, QWidget *parent)
                     this->need_update = false;
                   }
                 });
+  // precise: the default coarse timer snaps to the ~15.6 ms system tick on
+  // Windows, so a 16 ms interval regularly lands on 31 ms and halves the rate
+  this->frame_timer.setTimerType(Qt::PreciseTimer);
   this->frame_timer.start(16);
 
   // init.
@@ -74,6 +81,7 @@ RenderWidget::RenderWidget(const std::string &_title, QWidget *parent)
   this->sp_mesh_manager->add_instanced_mesh(keys::mesh::trees);
   this->sp_mesh_manager->add_instanced_mesh(keys::mesh::leaves);
   this->sp_mesh_manager->add_mesh(keys::mesh::skybox);
+  this->sp_mesh_manager->add_mesh(keys::mesh::void_grid);
 
   // configure default render parameters
   this->sp_mesh_manager->get_render_params(keys::mesh::plane)->base_color = glm::vec3(
@@ -86,6 +94,7 @@ RenderWidget::RenderWidget(const std::string &_title, QWidget *parent)
       1.0f);
   this->sp_mesh_manager->get_render_params(keys::mesh::water)->cast_shadow = false;
   this->sp_mesh_manager->get_render_params(keys::mesh::skybox)->cast_shadow = false;
+  this->sp_mesh_manager->get_render_params(keys::mesh::void_grid)->cast_shadow = false;
 
   // add placeholder for each texture
   const std::vector<std::string> tex_names = {keys::tex::albedo,
@@ -96,6 +105,9 @@ RenderWidget::RenderWidget(const std::string &_title, QWidget *parent)
                                               keys::tex::skybox};
   for (auto &s : tex_names)
     this->sp_texture_manager->add(s);
+
+  // after every default above is in place: hosts reset against these
+  this->capture_setting_defaults();
 }
 
 RenderWidget::~RenderWidget()
@@ -141,6 +153,14 @@ void RenderWidget::clear()
                  0.f,
                  2000.f * this->hmap_wx,
                  2000.f * this->hmap_wx);
+
+  // the "Void" background's grid, at the same level (it fades out by itself)
+  generate_plane(*this->sp_mesh_manager->get_mesh(keys::mesh::void_grid),
+                 0.f,
+                 -2e-3f,
+                 0.f,
+                 40.f * this->hmap_wx,
+                 40.f * this->hmap_wx);
 
   Mesh *skybox_mesh = this->sp_mesh_manager->get_mesh(keys::mesh::skybox);
   if (skybox_mesh)
@@ -294,6 +314,10 @@ void RenderWidget::initializeGL()
 
   this->sp_shader_manager->add_shader_from_code("skybox", skybox_vertex, skybox_frag);
 
+  this->sp_shader_manager->add_shader_from_code("void_grid",
+                                                void_grid_vertex,
+                                                void_grid_frag);
+
   // --- Meshes
 
   // keep the plane square, use hmap_wx for both directions
@@ -303,6 +327,14 @@ void RenderWidget::initializeGL()
                  0.f,
                  2000.f * this->hmap_wx,
                  2000.f * this->hmap_wx);
+
+  // the "Void" background's grid, at the same level (it fades out by itself)
+  generate_plane(*this->sp_mesh_manager->get_mesh(keys::mesh::void_grid),
+                 0.f,
+                 -2e-3f,
+                 0.f,
+                 40.f * this->hmap_wx,
+                 40.f * this->hmap_wx);
 
   // skybox unit cube
   generate_cube(*this->sp_mesh_manager->get_mesh(keys::mesh::skybox),
@@ -340,11 +372,14 @@ void RenderWidget::initializeGL()
 
   // shadow map texture and buffer
   {
-    int shadow_map_res = 1024; // 2048;
+    GLint max_size = 0;
+    glGetIntegerv(GL_MAX_TEXTURE_SIZE, &max_size);
+    if (max_size > 0)
+      this->shadow_map_resolution = std::min(this->shadow_map_resolution, int(max_size));
 
     this->sp_texture_manager->add_depth_texture(keys::tex::shadow_map,
-                                                shadow_map_res,
-                                                shadow_map_res,
+                                                this->shadow_map_resolution,
+                                                this->shadow_map_resolution,
                                                 true);
 
     // create framebuffer for shadow depth
@@ -398,6 +433,26 @@ void RenderWidget::initializeGL()
   ImGui::SetCurrentContext(this->imgui_context);
   ImGui::StyleColorsDark();
   imgui_set_blender_style();
+
+  // a smooth UI face for the orientation gizmo's labels (the default font is a
+  // pixel font); the default stays the first, so ImGui windows are unchanged
+  {
+    ImGuiIO &io = ImGui::GetIO();
+    io.Fonts->AddFontDefault();
+    for (const char *path : {"C:/Windows/Fonts/segoeuib.ttf",
+                             "C:/Windows/Fonts/segoeui.ttf",
+                             "/System/Library/Fonts/SFNS.ttf",
+                             "/System/Library/Fonts/Helvetica.ttc",
+                             "/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf",
+                             "/usr/share/fonts/TTF/DejaVuSans-Bold.ttf",
+                             "/usr/share/fonts/dejavu/DejaVuSans-Bold.ttf"})
+      if (QFile::exists(path))
+      {
+        this->gizmo_font = io.Fonts->AddFontFromFileTTF(path, 13.f);
+        if (this->gizmo_font)
+          break;
+      }
+  }
 
   // OpenGL3 backend
   ImGui_ImplOpenGL3_Init("#version 330");
@@ -625,6 +680,14 @@ void RenderWidget::set_heightmap_geometry(const std::vector<float> &data,
                  2000.f * this->hmap_wx,
                  2000.f * this->hmap_wx);
 
+  // the "Void" background's grid: at the terrain's lowest point
+  generate_plane(*this->sp_mesh_manager->get_mesh(keys::mesh::void_grid),
+                 0.f,
+                 this->hmap_hmin * this->hmap_h - 2e-3f,
+                 0.f,
+                 40.f * this->hmap_wx,
+                 40.f * this->hmap_wx);
+
   this->current_width = width;
   this->current_height = height;
   this->current_add_skirt_state = add_skirt;
@@ -669,6 +732,7 @@ void RenderWidget::set_instanced_mesh(const std::string               &name,
 void RenderWidget::set_render_type(const RenderType &new_render_type)
 {
   this->render_type = new_render_type;
+  this->need_update = true;
 }
 
 void RenderWidget::set_mesh_visible(const std::string &name, bool visible)
@@ -742,7 +806,12 @@ void RenderWidget::setup_gl_state()
              0,
              static_cast<GLsizei>(this->width() * dpr),
              static_cast<GLsizei>(this->height() * dpr));
-  glClearColor(0.1f, 0.1f, 0.1f, 1.0f);
+  // the "Void" background is black; everything else keeps the dark grey
+  const float clear = (this->render_type == RenderType::RENDER_3D &&
+                       this->void_background())
+                          ? 0.f
+                          : 0.1f;
+  glClearColor(clear, clear, clear, 1.0f);
   glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
   glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
@@ -785,7 +854,10 @@ void RenderWidget::update_light()
 
   if (this->auto_rotate_light)
   {
+    // kept in [-pi, pi]: hosts show it as an azimuth, not an ever-growing angle
     this->light_phi += 0.5f * this->dt;
+    if (this->light_phi > glm::pi<float>())
+      this->light_phi -= glm::two_pi<float>();
     this->need_update = true;
   }
 }
@@ -852,6 +924,46 @@ void RenderWidget::set_show_orientation_gizmo(bool show)
 {
   this->show_orientation_gizmo = show;
   this->need_update = true;
+}
+
+void RenderWidget::set_shadow_map_resolution(int resolution)
+{
+  resolution = std::clamp(resolution, 256, 8192);
+
+  if (!this->initial_gl_done)
+  {
+    // initializeGL creates the shadow map at this size
+    this->shadow_map_resolution = resolution;
+    return;
+  }
+
+  this->makeCurrent();
+
+  GLint max_size = 0;
+  glGetIntegerv(GL_MAX_TEXTURE_SIZE, &max_size);
+  if (max_size > 0)
+    resolution = std::min(resolution, int(max_size));
+
+  Texture *p_tex = this->sp_texture_manager->get(keys::tex::shadow_map);
+  if (p_tex && resolution != p_tex->get_width())
+  {
+    qtr::Logger::log()->trace("RenderWidget::set_shadow_map_resolution: {}", resolution);
+
+    // a new depth texture (new GL id), reattached to the shadow framebuffer
+    p_tex->generate_depth_texture(resolution, resolution, true);
+    glBindFramebuffer(GL_FRAMEBUFFER, this->fbo);
+    glFramebufferTexture2D(GL_FRAMEBUFFER,
+                           GL_DEPTH_ATTACHMENT,
+                           GL_TEXTURE_2D,
+                           p_tex->get_id(),
+                           0);
+    glBindFramebuffer(GL_FRAMEBUFFER, this->defaultFramebufferObject());
+  }
+
+  this->doneCurrent();
+
+  this->shadow_map_resolution = resolution;
+  this->settings_changed();
 }
 
 void RenderWidget::set_keyboard_navigation_enabled(bool enabled)

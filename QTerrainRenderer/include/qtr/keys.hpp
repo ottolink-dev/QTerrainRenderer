@@ -26,6 +26,7 @@ inline constexpr const char *rocks = "rocks";
 inline constexpr const char *trees = "trees";
 inline constexpr const char *leaves = "leaves";
 inline constexpr const char *skybox = "skybox";
+inline constexpr const char *void_grid = "void_grid"; // the "Void" background's grid
 } // namespace mesh
 
 } // namespace qtr::keys
