@@ -258,12 +258,27 @@ void RenderWidget::render_ui_render_3d()
 
   // --- View & Camera ---
   ImGui::SeparatorText("View");
+  changed |= ImGui::Checkbox("Orientation gizmo", &this->show_orientation_gizmo);
   changed |= ImGui::Checkbox("Normal visualization", &this->normal_visualization);
   ImGui::SameLine();
   changed |= ImGui::Checkbox("Wireframe", &this->wireframe_mode);
   changed |= ImGui::SliderFloat("Height scale", &this->scale_h, 0.f, 2.f);
   changed |= ImGui::SliderAngle("FOV", &this->camera.fov, 10.f, 180.f);
-  changed |= ImGui::Checkbox("Auto rotate cam.", &this->auto_rotate_camera);
+  changed |= ImGui::Checkbox("Keyboard controls", &this->keyboard_navigation_enabled);
+  if (this->keyboard_navigation_enabled)
+  {
+    ImGui::Indent();
+    const char *layout_names[] = {"WASD (QWERTY)", "ZQSD (AZERTY)"};
+    int         current_layout = static_cast<int>(this->keyboard_layout);
+    if (ImGui::Combo("Layout", &current_layout, layout_names, IM_ARRAYSIZE(layout_names)))
+    {
+      this->keyboard_layout = static_cast<KeyboardLayout>(current_layout);
+      changed = true;
+    }
+
+    changed |= ImGui::SliderFloat("Speed", &this->camera_move_speed, 0.1f, 10.f);
+    ImGui::Unindent();
+  }
 
   if (ImGui::Button("Reset Camera"))
   {
@@ -444,6 +459,20 @@ void RenderWidget::render_ui_render_3d()
     }
   }
 
+  // --- Orientation gizmo ---
+  if (this->show_orientation_gizmo)
+  {
+    ImGuiViewport *viewport = ImGui::GetMainViewport();
+    const float    gizmo_radius = 45.0f;
+    const ImVec2   gizmo_center(viewport->WorkPos.x + viewport->WorkSize.x - 65.0f,
+                              viewport->WorkPos.y + 65.0f);
+
+    changed |= imgui_orientation_gizmo(this->alpha_x,
+                                       this->alpha_y,
+                                       gizmo_center,
+                                       gizmo_radius);
+  }
+
   // --- Mouse controls overlay ---
   if (QTR_CONFIG->viewer3d.show_mouse_control)
   {
@@ -453,9 +482,10 @@ void RenderWidget::render_ui_render_3d()
     // Get main viewport
     ImGuiViewport *viewport = ImGui::GetMainViewport();
 
-    // Position at top-right
+    // Position at top-right (offset below gizmo if both are shown)
+    float  y_offset = (this->show_orientation_gizmo) ? 130.0f : padding.y;
     ImVec2 pos = ImVec2(viewport->WorkPos.x + viewport->WorkSize.x - padding.x,
-                        viewport->WorkPos.y + padding.y);
+                        viewport->WorkPos.y + y_offset);
 
     // Window flags for overlay
     ImGuiWindowFlags flags = ImGuiWindowFlags_NoDecoration |
@@ -478,6 +508,13 @@ void RenderWidget::render_ui_render_3d()
       ImGui::Text("LMB: Rotate");
       ImGui::Text("Wheel: Zoom");
       ImGui::Text("RMB: Pan");
+      if (this->keyboard_navigation_enabled)
+      {
+        if (this->keyboard_layout == KeyboardLayout::WASD)
+          ImGui::Text("WASD: Move (E/Q: Up/Down)");
+        else
+          ImGui::Text("ZQSD: Move (E/A: Up/Down)");
+      }
     }
     ImGui::End();
     ImGui::PopStyleVar(2);
@@ -492,25 +529,43 @@ void RenderWidget::render_ui_render_3d()
 
   if (!io.WantCaptureMouse) // only outside the ImGUI window
   {
-    if (ImGui::IsMouseDown(ImGuiMouseButton_Left))
+    // Check if click/drag is within gizmo to prevent duplicate camera movement
+    bool inside_gizmo = false;
+    if (this->show_orientation_gizmo)
     {
-      this->alpha_y -= io.MouseDelta.x * 0.005f;
-      this->alpha_x += io.MouseDelta.y * 0.005f;
-      this->alpha_x = glm::clamp(this->alpha_x,
-                                 -0.99f * glm::half_pi<float>(),
-                                 0.99f * glm::half_pi<float>());
+      ImGuiViewport *viewport = ImGui::GetMainViewport();
+      ImVec2         gizmo_center(viewport->WorkPos.x + viewport->WorkSize.x - 65.0f,
+                          viewport->WorkPos.y + 65.0f);
+      float          dx = io.MousePos.x - gizmo_center.x;
+      float          dy = io.MousePos.y - gizmo_center.y;
+      if (dx * dx + dy * dy <= (45.0f * 1.25f) * (45.0f * 1.25f))
+        inside_gizmo = true;
     }
 
-    if (ImGui::IsMouseDown(ImGuiMouseButton_Right))
+    if (!inside_gizmo)
     {
-      this->pan_offset.x -= io.MouseDelta.x * 0.001f * this->distance;
-      this->pan_offset.y += io.MouseDelta.y * 0.001f * this->distance;
-    }
+      if (ImGui::IsMouseDown(ImGuiMouseButton_Left))
+      {
+        this->alpha_y -= io.MouseDelta.x * 0.005f;
+        this->alpha_x += io.MouseDelta.y * 0.005f;
+        this->alpha_x = glm::clamp(this->alpha_x,
+                                   -0.99f * glm::half_pi<float>(),
+                                   0.99f * glm::half_pi<float>());
+      }
 
-    if (io.MouseWheel != 0.0f)
-    {
-      this->distance *= (1.0f - io.MouseWheel * 0.1f);
-      this->distance = glm::clamp(this->distance, 0.f, 50.0f);
+      if (ImGui::IsMouseDown(ImGuiMouseButton_Right))
+      {
+        glm::vec3 right_h(cos(this->alpha_y), 0.f, -sin(this->alpha_y));
+        float     factor = 0.001f * this->distance;
+        this->target -= right_h * (io.MouseDelta.x * factor);
+        this->target.y += io.MouseDelta.y * factor;
+      }
+
+      if (io.MouseWheel != 0.0f)
+      {
+        this->distance *= (1.0f - io.MouseWheel * 0.1f);
+        this->distance = glm::clamp(this->distance, 0.f, 50.0f);
+      }
     }
   }
   else

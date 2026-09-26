@@ -2,6 +2,7 @@
    License. The full license is in the file LICENSE, distributed with this software. */
 #include "qtr/windows_patch.hpp"
 
+#include <QFocusEvent>
 #include <QKeyEvent>
 #include <QMouseEvent>
 
@@ -55,18 +56,22 @@ void RenderWidget::wheelEvent(QWheelEvent *e)
   this->need_update = true;
 }
 
-void RenderWidget::keyPressEvent(QKeyEvent * /* e */)
+void RenderWidget::keyPressEvent(QKeyEvent *e)
 {
-
-  // this->get_imgui_io().KeysDown[e->key()] = true;
+  this->pressed_keys.insert(e->key());
   this->need_update = true;
 }
 
-void RenderWidget::keyReleaseEvent(QKeyEvent * /* e */)
+void RenderWidget::keyReleaseEvent(QKeyEvent *e)
 {
-
-  // this->get_imgui_io().KeysDown[e->key()] = false;
+  this->pressed_keys.erase(e->key());
   this->need_update = true;
+}
+
+void RenderWidget::focusOutEvent(QFocusEvent *event)
+{
+  this->pressed_keys.clear();
+  QOpenGLWidget::focusOutEvent(event);
 }
 
 } // namespace qtr

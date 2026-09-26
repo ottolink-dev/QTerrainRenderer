@@ -52,42 +52,43 @@ bool Shader::from_code(const std::string &vertex_code, const std::string &fragme
 
 bool Shader::from_file(const std::string &vertex_path, const std::string &fragment_path)
 {
-  // QOpenGLFunctions_3_3_Core::initializeOpenGLFunctions();
+  this->destroy();
+  this->sp_program = std::make_unique<QOpenGLShaderProgram>();
 
-  // Helper lambda to read file contents into a string
-  auto read_file = [](const std::string &path) -> std::string
+  if (!this->sp_program->addShaderFromSourceFile(QOpenGLShader::Vertex,
+                                                 QString::fromStdString(vertex_path)))
   {
-    std::ifstream file(path, std::ios::in | std::ios::binary);
-    if (!file)
-    {
-      qtr::Logger::log()->error("Shader::from_file: cannot open file '{}'", path);
-      return {};
-    }
-
-    std::ostringstream content;
-    content << file.rdbuf();
-    return content.str();
-  };
-
-  // Read vertex and fragment shader sources
-  std::string vertex_code = read_file(vertex_path);
-  if (vertex_code.empty())
-  {
-    qtr::Logger::log()->error("Shader::from_file: vertex shader '{}' is empty",
-                              vertex_path);
+    qtr::Logger::log()->error(
+        "Shader::from_file: could not add vertex shader from file '{}'",
+        vertex_path);
+    qtr::Logger::log()->error("Shader::from_file: build log >>>");
+    qtr::Logger::log()->error("{}", this->sp_program->log().toStdString());
+    qtr::Logger::log()->error("Shader::from_file: <<< build log");
     return false;
   }
 
-  std::string fragment_code = read_file(fragment_path);
-  if (fragment_code.empty())
+  if (!this->sp_program->addShaderFromSourceFile(QOpenGLShader::Fragment,
+                                                 QString::fromStdString(fragment_path)))
   {
-    qtr::Logger::log()->error("Shader::from_file: fragment shader '{}' is empty",
-                              fragment_path);
+    qtr::Logger::log()->error(
+        "Shader::from_file: could not add fragment shader from file '{}'",
+        fragment_path);
+    qtr::Logger::log()->error("Shader::from_file: build log >>>");
+    qtr::Logger::log()->error("{}", this->sp_program->log().toStdString());
+    qtr::Logger::log()->error("Shader::from_file: <<< build log");
     return false;
   }
 
-  // Compile and link using the other method
-  return this->from_code(vertex_code, fragment_code);
+  if (!this->sp_program->link())
+  {
+    qtr::Logger::log()->error("Shader::from_file: could not link shader program");
+    qtr::Logger::log()->error("Shader::from_file: build log >>>");
+    qtr::Logger::log()->error("{}", this->sp_program->log().toStdString());
+    qtr::Logger::log()->error("Shader::from_file: <<< build log");
+    return false;
+  }
+
+  return true;
 }
 
 void Shader::destroy() { this->sp_program.reset(); }

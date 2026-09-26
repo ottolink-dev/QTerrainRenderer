@@ -10,7 +10,25 @@ file(GLOB_RECURSE QTR_HEADERS CONFIGURE_DEPENDS
 file(GLOB_RECURSE QTR_SOURCES CONFIGURE_DEPENDS
      ${CMAKE_CURRENT_SOURCE_DIR}/src/*.cpp)
 
-add_library(${PROJECT_NAME} STATIC ${QTR_SOURCES} ${QTR_HEADERS})
+# --- Embedded shaders generation
+
+file(GLOB_RECURSE QTR_SHADER_FILES CONFIGURE_DEPENDS
+     ${CMAKE_CURRENT_SOURCE_DIR}/shaders/*.*)
+
+set(EMBEDDED_SHADERS_CPP ${CMAKE_CURRENT_BINARY_DIR}/embedded_shaders.cpp)
+
+add_custom_command(
+  OUTPUT ${EMBEDDED_SHADERS_CPP}
+  COMMAND
+    ${CMAKE_COMMAND} -DSHADERS_DIR=${CMAKE_CURRENT_SOURCE_DIR}/shaders
+    -DOUTPUT_FILE=${EMBEDDED_SHADERS_CPP} -P
+    ${CMAKE_SOURCE_DIR}/cmake/embed_shaders.cmake
+  DEPENDS ${QTR_SHADER_FILES} ${CMAKE_SOURCE_DIR}/cmake/embed_shaders.cmake
+  COMMENT "Generating embedded shaders source"
+  VERBATIM)
+
+add_library(${PROJECT_NAME} STATIC ${QTR_SOURCES} ${QTR_HEADERS}
+                                   ${EMBEDDED_SHADERS_CPP})
 add_library(${PROJECT_NAME}::${PROJECT_NAME} ALIAS ${PROJECT_NAME})
 
 target_compile_features(${PROJECT_NAME} PUBLIC cxx_std_20)

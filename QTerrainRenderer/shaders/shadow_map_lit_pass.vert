@@ -1,4 +1,3 @@
-R""(
 /* Copyright (c) 2025 Otto Link. Distributed under the terms of the GNU General Public
    License. The full license is in the file LICENSE, distributed with this software. */
 #version 330 core
@@ -18,15 +17,17 @@ layout(location = 6) in vec3 instance_color;
 out vec3 frag_pos;
 out vec3 frag_normal;
 out vec2 frag_uv;
+out vec4 frag_pos_light_space;
 out vec3 frag_instance_color;
 
 // ============================================================================
 // Uniforms
 // ============================================================================
 
-uniform mat4  model;
-uniform float aspect_ratio;
-uniform float zoom;
+uniform mat4 model;
+uniform mat4 view;
+uniform mat4 projection;
+uniform mat4 light_space_matrix;
 
 uniform bool has_instances;
 
@@ -91,16 +92,10 @@ void main()
     model_m = scale(model_m, vec3(instance_scale));
   }
 
-  vec4 world = model_m * vec4(pos, 1.0);
-
-  // top view: X stays X, Z becomes Y, flatten Y
-
-  // TODO profile view option
-
-  frag_pos = vec3(zoom * world.x / aspect_ratio, zoom * world.z, 0.0);
+  frag_pos = vec3(model_m * vec4(pos, 1.0));
   frag_normal = mat3(transpose(inverse(model_m))) * normal;
   frag_uv = uv;
 
-  gl_Position = vec4(frag_pos, 1.0);
+  frag_pos_light_space = light_space_matrix * vec4(frag_pos, 1.0);
+  gl_Position = projection * view * vec4(frag_pos, 1.0);
 }
-)""

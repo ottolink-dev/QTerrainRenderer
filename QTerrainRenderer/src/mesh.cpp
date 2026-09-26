@@ -61,6 +61,17 @@ void Mesh::create(std::vector<Vertex> vertices_in,
   this->index_count = indices_in.size();
   this->has_indices = !indices_in.empty();
 
+  if (!ok)
+  {
+    if (store_cpu_copy)
+    {
+      this->vertices = std::move(vertices_in);
+      this->indices = std::move(indices_in);
+      this->vertex_map = std::move(vertex_map_in);
+    }
+    return;
+  }
+
   // Create VAO
   glGenVertexArrays(1, &this->vao);
   glBindVertexArray(this->vao);
@@ -127,12 +138,15 @@ void Mesh::draw()
 
 void Mesh::destroy()
 {
-  if (this->vbo)
-    glDeleteBuffers(1, &this->vbo);
-  if (this->ebo)
-    glDeleteBuffers(1, &this->ebo);
-  if (this->vao)
-    glDeleteVertexArrays(1, &this->vao);
+  if (this->initializeOpenGLFunctions())
+  {
+    if (this->vbo)
+      glDeleteBuffers(1, &this->vbo);
+    if (this->ebo)
+      glDeleteBuffers(1, &this->ebo);
+    if (this->vao)
+      glDeleteVertexArrays(1, &this->vao);
+  }
 
   this->vbo = 0;
   this->ebo = 0;
