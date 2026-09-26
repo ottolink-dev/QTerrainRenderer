@@ -30,7 +30,7 @@ void RenderWidget::render_depth_map(const glm::mat4 &model,
 
     auto *plane_drawable = this->sp_mesh_manager->get_drawable(keys::mesh::plane);
     if (plane_drawable && plane_drawable->render_params.visible &&
-        plane_drawable->render_params.depth_pass)
+        !this->void_background() && plane_drawable->render_params.depth_pass)
       plane_drawable->draw(p_shader);
 
     auto *hmap_drawable = this->sp_mesh_manager->get_drawable(keys::mesh::hmap);

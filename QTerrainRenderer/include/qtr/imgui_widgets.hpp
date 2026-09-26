@@ -23,7 +23,8 @@ bool imgui_enum_selector(const std::string              &label,
 bool imgui_orientation_gizmo(float        &alpha_x,
                              float        &alpha_y,
                              const ImVec2 &center,
-                             float         radius = 45.0f);
+                             float         radius = 45.0f,
+                             ImFont       *font = nullptr); // labels; null: current font
 void imgui_set_blender_style();
 bool imgui_show_water_preset_selector(glm::vec3 &shallow, glm::vec3 &deep);
 bool imgui_viewer_main_menubar(RenderWidget &render_widget);
