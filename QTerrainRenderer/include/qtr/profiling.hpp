@@ -26,4 +26,3 @@
   {                                                                                      \
   } while (false)
 #endif
-

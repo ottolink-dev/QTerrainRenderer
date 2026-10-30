@@ -1,5 +1,5 @@
-#include "qtr/windows_patch.hpp"
 #include "gpu_frame_profiler.hpp"
+#include "qtr/windows_patch.hpp"
 
 #ifdef QTR_ENABLE_TRACY
 #include "qtr/logger.hpp"

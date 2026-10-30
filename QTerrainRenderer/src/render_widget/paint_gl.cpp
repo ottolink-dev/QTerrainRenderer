@@ -9,17 +9,17 @@
 #include <backends/imgui_impl_opengl3.h>
 #include <imgui.h>
 
-#include "qtr/config.hpp"
-#include "qtr/profiling.hpp"
 #include "gpu_frame_profiler.hpp"
-#include <cstdint>
-#include <string>
+#include "qtr/config.hpp"
 #include "qtr/imgui_widgets.hpp"
 #include "qtr/logger.hpp"
 #include "qtr/mesh.hpp"
 #include "qtr/primitives.hpp"
+#include "qtr/profiling.hpp"
 #include "qtr/render_widget.hpp"
 #include "qtr/utils.hpp"
+#include <cstdint>
+#include <string>
 
 namespace qtr
 {

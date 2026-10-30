@@ -333,7 +333,7 @@ private:
 #ifdef QTR_ENABLE_TRACY
   std::unique_ptr<GpuFrameProfiler> gpu_profiler;
 #endif
-  int   heightmap_request = 0; // the latest one, see set_heightmap_geometry_async()
+  int heightmap_request = 0; // the latest one, see set_heightmap_geometry_async()
 
   // --- Rendering parameters
 

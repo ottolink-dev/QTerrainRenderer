@@ -1,7 +1,7 @@
 /* Copyright (c) 2025 Otto Link. Distributed under the terms of the GNU General Public
    License. The full license is in the file LICENSE, distributed with this software. */
-#include "qtr/windows_patch.hpp"
 #include "qtr/profiling.hpp"
+#include "qtr/windows_patch.hpp"
 
 #include <algorithm>
 #include <cstdint>
@@ -15,10 +15,10 @@
 #include <QCoreApplication>
 #include <QFile>
 #include <QMessageBox>
-#include <QPointer>
-#include <QThreadPool>
 #include <QOpenGLFunctions>
+#include <QPointer>
 #include <QSurfaceFormat>
+#include <QThreadPool>
 
 #include "imgui_impl_glfw.h"
 #include "imgui_impl_opengl3.h"
@@ -474,10 +474,13 @@ void RenderWidget::initializeGL()
 
 #ifdef QTR_ENABLE_TRACY
   this->gpu_profiler = std::make_unique<GpuFrameProfiler>(this->context(), this);
-  connect(this->context(), &QOpenGLContext::aboutToBeDestroyed, this,
+  connect(this->context(),
+          &QOpenGLContext::aboutToBeDestroyed,
+          this,
           [this, profile_context = this->context()]
           {
-            if (this->context() != profile_context) return;
+            if (this->context() != profile_context)
+              return;
             this->makeCurrent();
             this->gpu_profiler.reset();
             this->doneCurrent();
@@ -697,7 +700,10 @@ void RenderWidget::set_heightmap_geometry_async(std::vector<float> data,
 
   const int request = ++this->heightmap_request;
   QTR_PROFILE_TEXT(std::format("renderer={} request={} shape={}x{}",
-                              reinterpret_cast<std::uintptr_t>(this), request, width, height));
+                               reinterpret_cast<std::uintptr_t>(this),
+                               request,
+                               width,
+                               height));
   this->set_aspect_ratio(static_cast<float>(width) / static_cast<float>(height));
 
   // the mesh is built on a pool thread with the dimensions as they are now, and
@@ -719,9 +725,21 @@ void RenderWidget::set_heightmap_geometry_async(std::vector<float> data,
       {
         QTR_PROFILE_ZONE("QTR::heightmap.worker");
         QTR_PROFILE_TEXT(std::format("renderer={} request={} shape={}x{}",
-                                    profile_owner, request, width, height));
+                                     profile_owner,
+                                     request,
+                                     width,
+                                     height));
         auto sp_geometry = std::make_shared<HeightmapGeometry>(
-            build_heightmap_geometry(data, width, height, 0.f, h0, 0.f, wx, h, wy, add_skirt));
+            build_heightmap_geometry(data,
+                                     width,
+                                     height,
+                                     0.f,
+                                     h0,
+                                     0.f,
+                                     wx,
+                                     h,
+                                     wy,
+                                     add_skirt));
         auto sp_data = std::make_shared<std::vector<float>>(std::move(data));
 
         QMetaObject::invokeMethod(
@@ -730,12 +748,18 @@ void RenderWidget::set_heightmap_geometry_async(std::vector<float> data,
 #ifdef QTR_ENABLE_TRACY
              profile_owner,
 #endif
-             request, sp_geometry, sp_data, width, height, add_skirt]()
+             request,
+             sp_geometry,
+             sp_data,
+             width,
+             height,
+             add_skirt]()
             {
               QTR_PROFILE_ZONE("QTR::heightmap.deliver");
               QTR_PROFILE_TEXT(std::format("renderer={} request={} accepted={}",
-                                          profile_owner, request,
-                                          self && request == self->heightmap_request));
+                                           profile_owner,
+                                           request,
+                                           self && request == self->heightmap_request));
               if (self && request == self->heightmap_request)
                 self->apply_heightmap_geometry(*sp_data,
                                                width,

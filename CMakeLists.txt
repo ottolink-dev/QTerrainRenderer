@@ -4,7 +4,8 @@ project(
   VERSION 0.0.0
   LANGUAGES CXX)
 
-option(QTR_ENABLE_TRACY "Enable Tracy CPU zones and asynchronous GPU frame plots" OFF)
+option(QTR_ENABLE_TRACY
+       "Enable Tracy CPU zones and asynchronous GPU frame plots" OFF)
 
 # --- Global output paths
 
