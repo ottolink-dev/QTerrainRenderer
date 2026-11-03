@@ -450,7 +450,7 @@ void RenderWidget::initializeGL()
   this->imgui_context = ImGui::CreateContext();
   ImGui::SetCurrentContext(this->imgui_context);
   ImGui::StyleColorsDark();
-  imgui_set_blender_style();
+  imgui_apply_style(this->ui_style);
 
   // a smooth UI face for the orientation gizmo's labels (the default font is a
   // pixel font); the default stays the first, so ImGui windows are unchanged
@@ -493,6 +493,17 @@ void RenderWidget::initializeGL()
   this->doneCurrent();
 
   this->initial_gl_done = true;
+}
+
+void RenderWidget::set_ui_style(const UIStyle &style)
+{
+  this->ui_style = style;
+  if (this->imgui_context)
+  {
+    ImGui::SetCurrentContext(this->imgui_context);
+    imgui_apply_style(this->ui_style);
+    this->need_update = true;
+  }
 }
 
 void RenderWidget::reset_camera_position()

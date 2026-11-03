@@ -32,6 +32,7 @@
 #include "qtr/shader_manager.hpp"
 #include "qtr/texture.hpp"
 #include "qtr/texture_manager.hpp"
+#include "qtr/ui_style.hpp"
 
 namespace qtr
 {
@@ -128,6 +129,10 @@ public:
   /// own settings UI hides it). The orientation gizmo is not affected.
   void set_settings_window_visible(bool visible);
   bool get_settings_window_visible() const { return this->show_settings_window; }
+
+  /// Apply shared visual style settings to ImGui controls
+  void           set_ui_style(const UIStyle &style);
+  const UIStyle &get_ui_style() const { return this->ui_style; }
 
   /// Space (logical px) a host overlay takes along the top and right edges; the
   /// orientation gizmo and the mouse-controls hint, both anchored top-right,
@@ -427,6 +432,7 @@ private:
 
   // --- ImGUI
   ImGuiContext *imgui_context = nullptr;
+  UIStyle       ui_style;
 };
 
 // --- Helpers

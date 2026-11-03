@@ -10,6 +10,7 @@
 #include <imgui.h>
 
 #include "qtr/render_widget.hpp"
+#include "qtr/ui_style.hpp"
 #include "qtr/water_colors.hpp"
 
 namespace qtr
@@ -17,6 +18,7 @@ namespace qtr
 
 static std::string current_water_preset = "caribbean"; // default
 
+void imgui_apply_style(const UIStyle &style);
 bool imgui_enum_selector(const std::string              &label,
                          int                            &value,
                          const std::vector<std::string> &options);

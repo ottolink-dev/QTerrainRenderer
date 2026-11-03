@@ -20,5 +20,6 @@
 #include "qtr/shader.hpp"
 #include "qtr/texture.hpp"
 #include "qtr/texture_manager.hpp"
+#include "qtr/ui_style.hpp"
 #include "qtr/utils.hpp"
 #include "qtr/water_colors.hpp"
